@@ -8,7 +8,7 @@ export default defineConfig({
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/icon-192.svg', 'icons/icon-512.svg'],
+      includeAssets: ['favicon.png'],
       manifest: {
         name: 'Abyss',
         short_name: 'Abyss',
@@ -21,15 +21,15 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: 'icons/icon-192.svg',
+            src: 'favicon.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any maskable'
           },
           {
-            src: 'icons/icon-512.svg',
+            src: 'favicon.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any maskable'
           }
         ]
