@@ -101,3 +101,40 @@
     --navbar-height:   0px;
   }
 }
+
+/* ================================================
+   Light Theme Variables
+   ================================================ */
+
+[data-theme="light"] {
+  /* ---- Colors ---- */
+  --color-bg-base:       #ffffff;
+  --color-bg-surface:    #f8f9fa;
+  --color-bg-elevated:   #ffffff;
+  --color-bg-overlay:    rgba(255, 255, 255, 0.95);
+
+  --color-border:        rgba(0, 0, 0, 0.08);
+  --color-border-focus:  rgba(79, 142, 247, 0.6);
+
+  --color-primary:       #4f8ef7;
+  --color-primary-hover: #6ba4ff;
+  --color-primary-subtle:rgba(79, 142, 247, 0.12);
+
+  --color-success:       #4ade80;
+  --color-success-subtle:rgba(74, 222, 128, 0.12);
+  --color-warning:       #facc15;
+  --color-warning-subtle:rgba(250, 204, 21, 0.12);
+  --color-danger:        #f87171;
+  --color-danger-subtle: rgba(248, 113, 113, 0.12);
+
+  --color-text-primary:  #1a1a2e;
+  --color-text-secondary:#5c5c7a;
+  --color-text-muted:    #9898b8;
+  --color-text-inverse:  #ffffff;
+
+  /* ---- Shadows ---- */
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);
+  --shadow-glow-primary: 0 0 20px rgba(79, 142, 247, 0.15);
+}
