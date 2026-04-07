@@ -1,246 +1,255 @@
-# 🌑 Abyss - Docker Infrastructure
+# 🌑 Abyss - Gestionnaire de Dépenses Personnelles
 
-Infrastructure Docker complète pour le projet Abyss avec 3 services orchestrés.
+Une application moderne de suivi des dépenses personnelles avec interface web élégante, API sécurisée et base de données chiffrée.
 
-## 📋 Services
+## ✨ Fonctionnalités
 
-- **API Fastify** (JavaScript/Node.js) - Port 3000
-  - Framework HTTP haute performance
-  - Endpoints pour communication avec la base de données
-  
-- **Frontend Vue.js** (Node.js + Vite) - Port 5173
-  - Interface utilisateur moderne
-  - Dashboard de statut des services
-  
-- **PostgreSQL** (Base de données) - Port 5432
-  - Stockage des données
-  - Credentials sécurisés via variables d'environnement
+- 📊 **Dashboard financier** avec statistiques complètes (KPIs, graphiques Chart.js)
+- 💰 **Suivi des dépenses** avec catégories hiérarchiques et couleurs personnalisées
+- 🔄 **Opérations récurrentes** (quotidiennes, hebdomadaires, mensuelles...)
+- 🔐 **Authentification sécurisée** avec JWT et chiffrement des données sensibles
+- 🎨 **Interface moderne** avec thème sombre/clair et design responsive
+- 📱 **Progressive Web App** (PWA) installable
+- 🐳 **Infrastructure Docker** complète et orchestrée
 
-## 🚀 Démarrage rapide
+## 🚀 Démarrage Rapide
 
-### Installation initiale
+### Prérequis
+
+- **Docker** et **Docker Compose** installés
+- **Git** pour cloner le repository
+- **Navigateur web** moderne
+
+### Installation en 3 étapes
 
 ```bash
-# Copier et configurer le fichier d'environnement
+# 1. Cloner le repository
+git clone <repository-url>
+cd abyss
+
+# 2. Configurer l'environnement
 make setup
 
-# Construire les images Docker
-make build
-
-# Lancer tous les services
+# 3. Lancer tous les services
 make up
 ```
 
-### Commandes principales
+🎉 **C'est tout !** L'application sera accessible sur :
+- **Frontend** : http://localhost:5173
+- **API** : http://localhost:3000
+
+## 👤 Créer le compte de démonstration Alice2
+
+Pour découvrir toutes les fonctionnalités avec des données réalistes, créez le profil Alice2 :
 
 ```bash
-# Voir le statut de tous les services avec leurs URLs
-make services
-
-# Lancer les services
-make up
-
-# Arrêter les services
-make down
-
-# Redémarrer les services
-make restart
-
-# Afficher les logs
-make logs
-
-# Aide détaillée
-make help
+# Créer le compte Alice2 avec 4 mois de données
+make alice2-demo
 ```
 
-## 📊 Monitoring
+Cette commande va :
+- ✅ Créer le compte `alice2@example.com` avec mot de passe `Alice123!!`
+- ✅ Générer 9 catégories (Alimentation, Transport, Logement, etc.)
+- ✅ Créer 113 transactions sur 4 mois avec patterns réalistes
+- ✅ Inclure revenus, dépenses fixes et variables
 
-### Voir l'état des services avec URLs
+### Se connecter avec Alice2
+
+- **Email** : `alice2@example.com`
+- **Mot de passe** : `Alice123!!`
+
+## 📱 Utilisation de l'application
+
+### Navigation principale
+
+1. **🏠 Accueil** - Vue d'ensemble avec statistiques générales
+2. **📊 Stats** - Dashboard détaillé avec graphiques (doughnut, bar, line)
+3. **📝 Historique** - Liste paginée des transactions (scroll infini)
+4. **🏷️ Catégories** - Gestion des catégories avec hiérarchie
+5. **⚙️ Paramètres** - Configuration utilisateur
+
+### Fonctionnalités clés
+
+#### Ajouter une dépense
+- Formulaire intuitif avec titre, montant, date, type (dépense/crédit)
+- Sélection de catégorie avec hiérarchie
+- Support des opérations récurrentes (quotidiennes, mensuelles...)
+
+#### Visualiser les statistiques
+- **KPIs principaux** : Solde net, total dépenses, total revenus, moyenne mensuelle
+- **Graphiques interactifs** :
+  - Répartition par catégories (camembert)
+  - Évolution mensuelle (lignes)
+  - Top catégories (barres)
+- **Thème adaptatif** : couleurs des catégories utilisées dans les graphiques
+
+#### Gérer les catégories
+- Création/modification avec couleurs personnalisées
+- Hiérarchie parent-enfant (sous-catégories)
+- Interface drag & drop pour réorganiser
+
+## 🏗️ Architecture Technique
+
+### Services Docker
+
+| Service     | Technologie          | Port  | Description                    |
+|-------------|----------------------|-------|--------------------------------|
+| **Frontend**| Vue.js 3 + Vite      | 5173  | Interface utilisateur moderne   |
+| **API**     | Fastify + Node.js    | 3000  | API REST avec authentification  |
+| **Database**| PostgreSQL 15        | 5432  | Base de données relationnelle   |
+
+### Sécurité
+
+- **Chiffrement** : Données sensibles chiffrées (noms de catégories, paramètres utilisateur)
+- **Authentification** : JWT tokens avec expiration
+- **Validation** : Schémas stricts et sanitisation des entrées
+- **CORS** : Configuration sécurisée pour les requêtes cross-origin
+
+### Base de données
+
+Tables principales :
+- `users` - Comptes utilisateur
+- `userParams` - Paramètres chiffrés (devise, préférences)
+- `categories` - Catégories avec hiérarchie et couleurs
+- `items` - Transactions financières
+
+## 🛠️ Commandes Make
+
+### Commandes essentielles
 
 ```bash
-make services
+make setup          # Configuration initiale (.env)
+make up             # Démarrer tous les services
+make down           # Arrêter les services
+make restart        # Redémarrer les services
+make services       # Afficher statut et URLs
+make alice2-demo    # Créer le compte de démo Alice2
 ```
 
-Exemple de résultat :
-```
-╔════════════════════════════════════════════════════════════════╗
-║                  🌐 Abyss Services Status                      ║
-╚════════════════════════════════════════════════════════════════╝
-
-✓ API             🔗 http://localhost:3000
-  └─ Status: Running
-
-✓ Frontend        🔗 http://localhost:5173
-  └─ Status: Running
-
-✓ PostgreSQL      📍 localhost:5432
-  └─ Status: Running
-```
-
-### Consulter les logs
+### Développement
 
 ```bash
-# Tous les services
-make logs
+make logs           # Logs de tous les services
+make api-logs       # Logs API uniquement
+make frontend-logs  # Logs frontend uniquement
+make shell-api      # Shell dans conteneur API
+make shell-frontend # Shell dans conteneur frontend
+```
 
-# Service spécifique
-make api-logs
-make frontend-logs
-make postgres-logs
+### Maintenance
+
+```bash
+make clean          # Nettoyer conteneurs et volumes
+make db-reset       # Réinitialiser la base de données
+make build          # Rebuild des images Docker
+make test           # Tests de connectivité
 ```
 
 ## 🔧 Configuration
 
 ### Variables d'environnement (.env)
 
-Les credentials de la base de données sont stockés dans le fichier `.env` :
-
 ```env
+# Base de données
 DB_USER=abyss_user
 DB_PASSWORD=SecureP@ssw0rd123!
 DB_NAME=abyss_db
 DB_PORT=5432
+
+# API
+JWT_SECRET=your-super-secret-jwt-key-here
+MASTER_SECRET=your-master-encryption-key
+
+# Frontend
+VITE_API_URL=http://localhost:3000
 ```
 
-⚠️ **Sécurité** : Le fichier `.env` est exclu de git. Never commit credentials!
+### Personnalisation
 
-## 🗄️ Base de données
+- **Devise** : Configurable par utilisateur (EUR, USD, GBP, JPY, CHF, AUD)
+- **Thème** : Automatique (sombre/clair) selon les préférences système
+- **Langue** : Français (extensible)
 
-Pour accéder à PostgreSQL :
+## 📊 Données de démonstration
 
-```bash
-make shell-postgres
-```
+Le compte Alice2 inclut :
 
-Tables créées automatiquement :
-- `users` - Utilisateurs du système
-- `items` - Éléments associés aux utilisateurs
-
-## 🛠️ Commandes avancées
-
-### Service spécifique
-
-```bash
-# Démarrer un service seul
-make api
-make frontend
-make postgres
-
-# Shell dans un conteneur
-make shell-api
-make shell-frontend
-make shell-postgres
-```
-
-### Maintenance
-
-```bash
-# Réinitialiser la base de données (danger ⚠️)
-make db-reset
-
-# Nettoyer complètement (conteneurs, volumes, réseaux)
-make clean
-
-# Afficher le statut des conteneurs
-make ps
-
-# Tester la connectivité
-make test
-```
-
-## 🌐 URLs d'accès
-
-| Service    | URL                    | Description           |
-|------------|------------------------|----------------------|
-| Frontend   | http://localhost:5173  | Dashboard Vue.js      |
-| API        | http://localhost:3000  | API Fastify           |
-| PostgreSQL | localhost:5432         | Base de données       |
-
-## 📁 Structure du projet
-
-```
-abyss/
-├── Makefile                 # Orchestration et commandes
-├── docker-compose.yml       # Configuration Docker Compose
-├── .env                      # Variables d'environnement (git ignored)
-├── .env.example             # Template .env
-├── backend/                 # API Fastify
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-│       └── server.js
-├── frontend/                # Frontend Vue.js
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── index.html
-│   └── src/
-│       ├── main.js
-│       └── App.vue
-└── postgres/                # Configuration PostgreSQL
-    └── init.sql             # Script d'initialisation BD
-```
-
-## 🔐 Sécurité
-
-- Les credentials de la base de données sont dans `.env` (non commité)
-- Variables d'environnement injectées aux services via Docker Compose
-- Les passwords doivent être changés en production
-- Utilisez des secrets Docker pour les déploiements productifs
+- **9 catégories** organisées hiérarchiquement
+- **113 transactions** sur 4 mois (janvier-avril 2026)
+- **Patterns réalistes** :
+  - Courses : 3x/semaine (20-60€)
+  - Transport : 2x/mois (20-100€)
+  - Loyer : 1x/mois (400-600€)
+  - Salaire : 2x/mois (2200-2500€)
+  - Loisirs, santé, abonnements...
 
 ## 🐛 Dépannage
 
-### Les services ne démarrent pas
+### Services ne démarrent pas
 
 ```bash
-# Vérifier les logs
+# Vérifier les logs détaillés
 make logs
 
 # Nettoyer et recommencer
 make clean && make up
 ```
 
-### Problème de connexion API/BD
+### Problème de connexion
 
 ```bash
-# Vérifier que PostgreSQL est en bonne santé
-make postgres-logs
+# Vérifier la santé des services
+make services
 
-# Redémarrer la base
-make db-reset
+# Tester l'API directement
+curl http://localhost:3000/api/health
 ```
 
-### Port déjà utilisé
-
-Modifier les ports dans `docker-compose.yml` et `.env`
-
-## 📝 Développement
-
-### Apporter des modifications
-
-Les volumes sont montés en développement, donc:
-- Modifications du code frontend/backend appliquées en direct
-- Pas besoin de rebuild, juste un refresh navigateur/redémarrage du service
+### Données Alice2 non visibles
 
 ```bash
-# Exemple : modifier src du backend
-# Les changements s'appliquent automatiquement grâce au watch mode
+# Recréer le compte de démo
+make alice2-demo
+
+# Vérifier dans la base
+make shell-postgres
+psql -U abyss -d abyss_dev -c "SELECT COUNT(*) FROM \"User\" WHERE email = 'alice2@example.com';"
 ```
 
 ## 🚢 Production
 
-Pour un déploiement production :
+Pour déployer en production :
 
-1. Retirer les volumes de développement du `docker-compose.yml`
-2. Utiliser des secrets Docker pour les credentials
-3. Configurer un reverse proxy (Nginx/Traefik)
-4. Utiliser des images multi-stage optimisées
-5. Implémenter la gestion des logs (ELK, etc.)
+1. **Sécurité** : Changer tous les secrets et mots de passe
+2. **Reverse proxy** : Nginx/Traefik pour SSL et routage
+3. **Base de données** : Utiliser un volume persistant externe
+4. **Monitoring** : Logs centralisés et métriques
+5. **Backup** : Sauvegarde automatique de la base de données
 
-## 📞 Support
+## 📝 Scripts disponibles
 
-Pour plus d'infos sur :
-- **Fastify** : https://www.fastify.io/
-- **Vue.js** : https://vuejs.org/
-- **PostgreSQL** : https://www.postgresql.org/
-- **Docker** : https://www.docker.com/
+### Création de données personnalisées
+
+```bash
+# Créer un compte avec données personnalisées
+./scripts/create-demo-user.sh <email> <password> <months>
+
+# Exemple : 6 mois de données
+./scripts/create-demo-user.sh "john@example.com" "John123!!" 6
+```
+
+## 🤝 Contribution
+
+1. Fork le projet
+2. Créer une branche feature (`git checkout -b feature/amazing-feature`)
+3. Commit atomiques (`git commit -m "Add amazing feature"`)
+4. Push la branche (`git push origin feature/amazing-feature`)
+5. Ouvrir une Pull Request
+
+## 📄 Licence
+
+MIT License - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+---
+
+**Prêt à gérer vos finances ?** 🚀 Lancez `make up` et commencez avec Alice2 !
