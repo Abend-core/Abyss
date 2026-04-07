@@ -2,9 +2,9 @@
 import NavItem from '@/components/molecules/NavItem.vue'
 
 const ROUTES = [
-  { to: '/',         icon: 'home',     label: 'Accueil'  },
-  { to: '/services', icon: 'server',   label: 'Services' },
-  { to: '/settings', icon: 'settings', label: 'Réglages' },
+  { to: '/',           icon: 'home',     label: 'Accueil'    },
+  { to: '/categories', icon: 'database', label: 'Catégories' },
+  { to: '/settings',   icon: 'settings', label: 'Réglages'   },
 ]
 </script>
 
