@@ -17,7 +17,6 @@ import helmet      from '@fastify/helmet'
 import jwt         from '@fastify/jwt'
 import swagger     from '@fastify/swagger'
 import swaggerUi   from '@fastify/swagger-ui'
-import { PrismaClient } from '@prisma/client'
 
 export async function buildApp(opts = {}) {
   const { testing = false, prisma: injectedPrisma } = opts
@@ -75,16 +74,12 @@ export async function buildApp(opts = {}) {
   }
 
   // ── Prisma ───────────────────────────────────────────────
-  const prismaInstance = injectedPrisma ?? new PrismaClient({
-    log: !testing && process.env.NODE_ENV === 'development'
-      ? ['query', 'warn', 'error']
-      : ['warn', 'error'],
-  })
-
+  const prismaInstance = injectedPrisma ?? (await import('./lib/prisma.js')).default
   fastify.decorate('prisma', prismaInstance)
 
   // ── Routes ───────────────────────────────────────────────
   fastify.register(import('./routes/auth.js'))
+  fastify.register(import('./routes/user.js'))
 
   if (!testing) {
     // Root HTML page (uniquement en production — inutile dans les tests)

@@ -41,6 +41,12 @@ describe('POST /api/auth/register', () => {
         findUnique: vi.fn(),
         create:     vi.fn(),
       },
+      userParam: {
+        create: vi.fn(),
+      },
+      category: {
+        createMany: vi.fn(),
+      },
       $disconnect: vi.fn(),
       $queryRaw:   vi.fn().mockResolvedValue([]),
     }
@@ -151,6 +157,12 @@ describe('POST /api/auth/login', () => {
       user: {
         findUnique: vi.fn(),
         create:     vi.fn(),
+      },
+      userParam: {
+        create: vi.fn(),
+      },
+      category: {
+        createMany: vi.fn(),
       },
       $disconnect: vi.fn(),
       $queryRaw:   vi.fn().mockResolvedValue([]),

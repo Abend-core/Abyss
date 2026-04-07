@@ -32,7 +32,35 @@ function getMasterSecret() {
 function deriveKey(usage) {
   return crypto.scryptSync(getMasterSecret(), `abyss:${usage}`, 32)
 }
+function encryptSecret(value, usage) {
+  const key = deriveKey(usage)
+  const iv  = crypto.randomBytes(12)
 
+  const cipher    = crypto.createCipheriv('aes-256-gcm', key, iv)
+  let   encrypted = cipher.update(value, 'utf8', 'hex')
+  encrypted      += cipher.final('hex')
+  const authTag   = cipher.getAuthTag()
+
+  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+}
+
+function decryptSecret(encryptedValue, usage) {
+  const parts = encryptedValue.split(':')
+  if (parts.length !== 3) throw new Error('Invalid encrypted value format')
+
+  const [ivHex, authTagHex, ciphertext] = parts
+  const key     = deriveKey(usage)
+  const iv      = Buffer.from(ivHex, 'hex')
+  const authTag = Buffer.from(authTagHex, 'hex')
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(authTag)
+
+  let decrypted  = decipher.update(ciphertext, 'hex', 'utf8')
+  decrypted     += decipher.final('utf8')
+
+  return decrypted
+}
 // ── Blind index ──────────────────────────────────────────────
 
 /**
@@ -60,16 +88,16 @@ export function hashEmail(email) {
  * @param {string} email - email en clair
  * @returns {string}
  */
+export function encryptValue(value, usage = 'user-settings') {
+  return encryptSecret(value, usage)
+}
+
+export function decryptValue(encryptedValue, usage = 'user-settings') {
+  return decryptSecret(encryptedValue, usage)
+}
+
 export function encryptEmail(email) {
-  const key = deriveKey('email-encryption')
-  const iv  = crypto.randomBytes(12)
-
-  const cipher    = crypto.createCipheriv('aes-256-gcm', key, iv)
-  let   encrypted = cipher.update(email.toLowerCase().trim(), 'utf8', 'hex')
-  encrypted      += cipher.final('hex')
-  const authTag   = cipher.getAuthTag()
-
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
+  return encryptValue(email.toLowerCase().trim(), 'email-encryption')
 }
 
 /**
@@ -80,19 +108,5 @@ export function encryptEmail(email) {
  * @returns {string} email en clair
  */
 export function decryptEmail(encryptedEmail) {
-  const parts = encryptedEmail.split(':')
-  if (parts.length !== 3) throw new Error('Invalid encrypted email format')
-
-  const [ivHex, authTagHex, ciphertext] = parts
-  const key     = deriveKey('email-encryption')
-  const iv      = Buffer.from(ivHex, 'hex')
-  const authTag = Buffer.from(authTagHex, 'hex')
-
-  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv)
-  decipher.setAuthTag(authTag)
-
-  let decrypted  = decipher.update(ciphertext, 'hex', 'utf8')
-  decrypted     += decipher.final('utf8')
-
-  return decrypted
+  return decryptValue(encryptedEmail, 'email-encryption')
 }

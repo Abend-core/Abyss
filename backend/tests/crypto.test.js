@@ -78,6 +78,6 @@ describe('encryptEmail + decryptEmail', () => {
   })
 
   it('format invalide lève une erreur', () => {
-    expect(() => decryptEmail('notvalid')).toThrow('Invalid encrypted email format')
+    expect(() => decryptEmail('notvalid')).toThrow('Invalid encrypted value format')
   })
 })

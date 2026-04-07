@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import crypto  from 'node:crypto'
-import { hashEmail, encryptEmail, decryptEmail } from '../utils/crypto.js'
+import { hashEmail, encryptEmail, decryptEmail, encryptValue } from '../utils/crypto.js'
 
 const BCRYPT_ROUNDS = 12
 
@@ -85,6 +85,28 @@ export default async function authRoutes(fastify) {
     const user = await fastify.prisma.user.create({
       data: { emailHash, emailEncrypted, passwordHash, authSalt, keySalt, keyFragment },
       select: { id: true, createdAt: true },
+    })
+
+    // Set default currency
+    await fastify.prisma.userParam.create({
+      data: {
+        userId: user.id,
+        key: 'currency',
+        valueEncrypted: encryptValue('EUR', 'user-settings'),
+      },
+    })
+
+    // Catégories par défaut
+    const defaultCategories = [
+      'Alimentation', 'Transport', 'Logement', 'Santé',
+      'Loisirs', 'Habillement', 'Épargne', 'Abonnements', 'Divers',
+    ]
+    await fastify.prisma.category.createMany({
+      data: defaultCategories.map((name, i) => ({
+        userId: user.id,
+        position: i,
+        nameEncrypted: encryptValue(name, 'category-name'),
+      })),
     })
 
     return reply.code(201).send({
@@ -174,6 +196,48 @@ export default async function authRoutes(fastify) {
     return reply.code(200).send({
       token,
       user: { id: user.id, email: decryptedEmail },
+    })
+  })
+
+  // ── POST /api/auth/add-default-categories ──────────────────
+  fastify.post('/api/auth/add-default-categories', {
+    schema: {
+      summary: 'Ajouter les catégories par défaut aux utilisateurs existants',
+      tags: ['auth'],
+    },
+  }, async (req, reply) => {
+    // Récupérer tous les utilisateurs
+    const users = await fastify.prisma.user.findMany({ select: { id: true } })
+
+    const defaultCategories = [
+      'Alimentation', 'Transport', 'Logement', 'Santé',
+      'Loisirs', 'Habillement', 'Épargne', 'Abonnements', 'Divers',
+    ]
+
+    let totalAdded = 0
+
+    for (const user of users) {
+      // Vérifier si l'utilisateur a déjà des catégories
+      const existingCategories = await fastify.prisma.category.findMany({
+        where: { userId: user.id },
+        select: { id: true },
+      })
+
+      if (existingCategories.length === 0) {
+        // Ajouter les catégories par défaut
+        await fastify.prisma.category.createMany({
+          data: defaultCategories.map((name, i) => ({
+            userId: user.id,
+            position: i,
+            nameEncrypted: encryptValue(name, 'category-name'),
+          })),
+        })
+        totalAdded++
+      }
+    }
+
+    return reply.code(200).send({
+      message: `Catégories par défaut ajoutées à ${totalAdded} utilisateurs.`,
     })
   })
 }
