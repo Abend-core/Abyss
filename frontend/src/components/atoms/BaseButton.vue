@@ -1,4 +1,6 @@
 <script setup>
+const emit = defineEmits(['click'])
+
 defineProps({
   /** 'primary' | 'secondary' | 'ghost' | 'danger' */
   variant: { type: String, default: 'primary' },
@@ -9,7 +11,6 @@ defineProps({
   type:    { type: String, default: 'button' },
   full:    { type: Boolean, default: false },
 })
-defineEmits(['click'])
 </script>
 
 <template>
@@ -23,6 +24,7 @@ defineEmits(['click'])
       { 'btn--full': full, 'btn--loading': loading }
     ]"
     v-bind="$attrs"
+    @click="emit('click', $event)"
   >
     <span v-if="loading" class="btn__spinner" aria-hidden="true" />
     <slot />

@@ -30,6 +30,11 @@ defineProps({
 <style scoped>
 .text { display: inline; }
 
+h1.text, h2.text, h3.text, h4.text, h5.text, h6.text,
+p.text, div.text, section.text, article.text {
+  display: block;
+}
+
 /* Sizes */
 .text--xs   { font-size: var(--text-xs); }
 .text--sm   { font-size: var(--text-sm); }
