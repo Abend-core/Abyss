@@ -4,7 +4,6 @@ export const useAppStore = defineStore('app', {
   state: () => ({
     /** 'dark' | 'light' */
     theme: localStorage.getItem('abyss_theme') ?? 'dark',
-    isOnline: navigator.onLine,
     notifications: [],
     _nextNotifId: 0,
   }),
@@ -24,10 +23,6 @@ export const useAppStore = defineStore('app', {
       this.theme = this.theme === 'dark' ? 'light' : 'dark'
       localStorage.setItem('abyss_theme', this.theme)
       document.documentElement.setAttribute('data-theme', this.theme)
-    },
-
-    setOnline(value) {
-      this.isOnline = value
     },
 
     /**

@@ -24,16 +24,24 @@ const routes = [
     meta: { layout: 'default', title: 'Accueil', requiresAuth: true }
   },
   {
-    path: '/expenses',
-    name: 'expenses',
+    path: '/operations',
+    alias: ['/expenses'],
+    name: 'operations',
     component: () => import('@/pages/ExpensesPage.vue'),
-    meta: { layout: 'default', title: 'Dépenses', requiresAuth: true }
+    meta: { layout: 'default', title: 'Opérations', requiresAuth: true }
   },
   {
-    path: '/services',
-    name: 'services',
-    component: () => import('@/pages/ServicesPage.vue'),
-    meta: { layout: 'default', title: 'Services', requiresAuth: true }
+    path: '/categories',
+    alias: ['/services'],
+    name: 'categories',
+    component: () => import('@/pages/CategoriesPage.vue'),
+    meta: { layout: 'default', title: 'Catégories', requiresAuth: true }
+  },
+  {
+    path: '/stats',
+    name: 'stats',
+    component: () => import('@/pages/StatsPage.vue'),
+    meta: { layout: 'default', title: 'Statistiques', requiresAuth: true }
   },
   {
     path: '/settings',
@@ -63,13 +71,20 @@ const router = createRouter({
 // ── Guard auth ───────────────────────────────────────────────
 router.beforeEach((to) => {
   const auth = useAuthStore()
+  const isAuthenticated = auth.isAuthenticated
 
-  if (to.meta.requiresAuth && !auth.isAuthenticated) {
-    return { name: 'login', query: { redirect: to.fullPath } }
+  // Si la route requiert l'authentification et utilisateur pas connecté
+  if (to.meta.requiresAuth && !isAuthenticated) {
+    return { name: 'login' }
+  }
+
+  // Si utilisateur n'a pas d'auth ET route est pas login/register → redirect to login
+  if (!isAuthenticated && to.name !== 'login' && to.name !== 'register' && to.name !== 'not-found') {
+    return { name: 'login' }
   }
 
   // Déjà connecté → pas besoin d'aller sur login/register
-  if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
+  if ((to.name === 'login' || to.name === 'register') && isAuthenticated) {
     return { name: 'home' }
   }
 })

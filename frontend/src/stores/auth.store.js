@@ -1,11 +1,20 @@
 import { defineStore } from 'pinia'
 
 const TOKEN_KEY = 'abyss_token'
+const USER_KEY = 'abyss_user'
+
+function loadUser() {
+  try {
+    return JSON.parse(sessionStorage.getItem(USER_KEY) ?? 'null')
+  } catch {
+    return null
+  }
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
-    token: localStorage.getItem(TOKEN_KEY) ?? null,
-    user:  null,
+    token: sessionStorage.getItem(TOKEN_KEY) ?? null,
+    user:  loadUser(),
   }),
 
   getters: {
@@ -20,13 +29,15 @@ export const useAuthStore = defineStore('auth', {
     setSession({ token, user }) {
       this.token = token
       this.user  = user ?? null
-      localStorage.setItem(TOKEN_KEY, token)
+      sessionStorage.setItem(TOKEN_KEY, token)
+      sessionStorage.setItem(USER_KEY, JSON.stringify(this.user))
     },
 
     logout() {
       this.token = null
       this.user  = null
-      localStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(TOKEN_KEY)
+      sessionStorage.removeItem(USER_KEY)
     },
   },
 })

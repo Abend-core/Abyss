@@ -13,8 +13,11 @@ export function useApi() {
     error.value = null
     try {
       const headers = {
-        'Content-Type': 'application/json',
         ...options.headers,
+      }
+
+      if (options.body !== undefined) {
+        headers['Content-Type'] = 'application/json'
       }
 
       if (auth.token) {
@@ -43,5 +46,13 @@ export function useApi() {
     request(path, { method: 'PUT', body: JSON.stringify(body), ...opts })
   const del  = (path, opts = {}) => request(path, { method: 'DELETE', ...opts })
 
-  return { loading, error, get, post, put, del }
+  // Fonction générique pour les cas complexes
+  function api(path, options = {}) {
+    if (options.body && typeof options.body === 'object') {
+      options.body = JSON.stringify(options.body)
+    }
+    return request(path, options)
+  }
+
+  return { loading, error, get, post, put, del, api, request }
 }
