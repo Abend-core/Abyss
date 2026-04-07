@@ -12,10 +12,12 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "vue-router": "^4.3.0",
+    "axios": "^1.6.2",
+    "chart.js": "^4.4.0",
     "pinia": "^2.1.7",
-    "axios": "^1.6.2"
+    "remixicon": "^4.9.1",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
