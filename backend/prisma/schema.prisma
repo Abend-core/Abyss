@@ -17,19 +17,60 @@ datasource db {
 // Model: User
 // ============================================================
 model User {
+  id             String       @id @default(uuid()) @db.Uuid
+  emailHash      String       @unique @map("email_hash") @db.VarChar(64)  // HMAC-SHA256 — blind index pour lookup
+  emailEncrypted String       @map("email_encrypted") @db.Text              // AES-256-GCM — pour affichage
+  passwordHash   String       @map("password_hash") @db.Text
+  authSalt       String       @map("auth_salt") @db.VarChar(32)             // 16 bytes hex — pour hash password
+  keySalt        String       @map("key_salt") @db.VarChar(32)              // 16 bytes hex — pour dérivation de clé
+  keyFragment    String       @map("key_fragment") @db.VarChar(64)          // 32 bytes hex — split-key fragment
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+
+  items          Item[]
+  categories     Category[]
+  params         UserParam[]
+
+  @@map("users")
+  @@schema("dbo")
+}
+
+model Category {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  parentId      String?  @map("parent_id") @db.Uuid
+  nameEncrypted String   @map("name_encrypted") @db.Text
+  colorEncrypted String? @map("color_encrypted") @db.Text
+  color         String?  @db.VarChar(7)  // Hex color (#RRGGBB) — not encrypted for performance
+  position      Int?     @db.Integer
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent        Category? @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children      Category[] @relation("CategoryChildren")
+  items         Item[]
+
+  @@index([userId])
+  @@index([parentId])
+  @@map("categories")
+  @@schema("dbo")
+}
+
+model UserParam {
   id             String   @id @default(uuid()) @db.Uuid
-  emailHash      String   @unique @map("email_hash") @db.VarChar(64)  // HMAC-SHA256 — blind index pour lookup
-  emailEncrypted String   @map("email_encrypted") @db.Text              // AES-256-GCM — pour affichage
-  passwordHash   String   @map("password_hash") @db.Text
-  authSalt       String   @map("auth_salt") @db.VarChar(32)             // 16 bytes hex — pour hash password
-  keySalt        String   @map("key_salt") @db.VarChar(32)              // 16 bytes hex — pour dérivation de clé
-  keyFragment    String   @map("key_fragment") @db.VarChar(64)          // 32 bytes hex — split-key fragment
+  userId         String   @map("user_id") @db.Uuid
+  device         String?  @db.VarChar(128)
+  key            String   @db.VarChar(64)
+  valueEncrypted String   @map("value_encrypted") @db.Text
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz()
 
-  items          Item[]
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("users")
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("user_params")
   @@schema("dbo")
 }
 
@@ -37,16 +78,24 @@ model User {
 // Model: Item
 // ============================================================
 model Item {
-  id          String   @id @default(uuid()) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  title       String   @db.VarChar(255)
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz()
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  categoryId    String?   @map("category_id") @db.Uuid
+  title         String    @db.VarChar(255)
+  amount        Decimal   @db.Decimal(10, 2)
+  date          DateTime  @db.Date
+  isRecurring   Boolean   @default(false) @map("is_recurring")
+  recurrence    String?   @db.VarChar(50)  // 'daily', 'weekly', 'monthly', 'yearly'
+  description   String?   @db.Text
+  type          String    @db.VarChar(20) @default("expense")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([categoryId])
   @@map("items")
   @@schema("dbo")
 }
