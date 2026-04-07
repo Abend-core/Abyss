@@ -9,11 +9,32 @@ API_URL="http://localhost:3000"
 
 echo "👤 Création du compte de démonstration Alice2..."
 
-# Vérifier que les services sont démarrés
-if ! curl -s "$API_URL/api/health" > /dev/null; then
-    echo "❌ L'API n'est pas accessible sur $API_URL"
-    echo "   Lancez d'abord: make up"
-    exit 1
+# Vérifier si Alice2 existe déjà
+EXISTING_TOKEN=$(curl -s -X POST "$API_URL/api/auth/login" \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"alice2@example.com","password":"Alice123!!"}' | jq -r '.token // empty')
+
+if [ -n "$EXISTING_TOKEN" ] && [ "$EXISTING_TOKEN" != "null" ]; then
+  echo "⚠️  Le compte Alice2 existe déjà !"
+  EXISTING_COUNT=$(curl -s "$API_URL/api/user/expenses" -H "Authorization: Bearer $EXISTING_TOKEN" | jq '.total // 0')
+  echo "   Transactions existantes : $EXISTING_COUNT"
+  echo ""
+  read -p "Voulez-vous le recréer ? (y/N): " -n 1 -r
+  echo ""
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "✓ Utilisation du compte Alice2 existant"
+    echo ""
+    echo "🔑 Identifiants Alice2 :"
+    echo "   Email: alice2@example.com"
+    echo "   Mot de passe: Alice123!!"
+    echo ""
+    echo "🌐 Connectez-vous sur http://localhost:5173"
+    exit 0
+  fi
+  
+  # Supprimer l'ancien compte
+  echo "🗑️  Suppression de l'ancien compte Alice2..."
+  # Note: On ne peut pas supprimer via API, on recrée simplement
 fi
 
 echo "🔐 Création du profil Alice2..."
