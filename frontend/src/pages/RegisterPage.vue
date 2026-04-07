@@ -7,6 +7,7 @@ import BaseInput          from '@/components/atoms/BaseInput.vue'
 import BaseButton         from '@/components/atoms/BaseButton.vue'
 import BaseText           from '@/components/atoms/BaseText.vue'
 import PasswordStrength   from '@/components/molecules/PasswordStrength.vue'
+import logoUrl            from '@/assets/logo.png'
 
 const router = useRouter()
 const api = useApi()
@@ -79,7 +80,7 @@ async function submit() {
     <div class="auth-page__card">
       <!-- Brand -->
       <div class="auth-page__brand">
-        <span class="auth-page__logo" aria-hidden="true">🌑</span>
+        <img :src="logoUrl" alt="Abyss" class="auth-page__logo-img" />
         <BaseText as="h1" size="3xl" weight="bold" color="primary">ABYSS</BaseText>
         <BaseText as="p" size="sm" color="muted">Créez votre compte</BaseText>
       </div>
@@ -178,9 +179,12 @@ async function submit() {
   text-align: center;
 }
 
-.auth-page__logo {
-  font-size: 3rem;
-  line-height: 1;
+.auth-page__logo-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 16px;
+  display: block;
   filter: drop-shadow(0 0 20px rgba(79, 142, 247, 0.4));
 }
 

@@ -1,14 +1,14 @@
 <script setup>
 import { ref } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi.js'
 import { useAuthStore } from '@/stores/auth.store.js'
 import BaseInput  from '@/components/atoms/BaseInput.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseText   from '@/components/atoms/BaseText.vue'
+import logoUrl    from '@/assets/logo.png'
 
 const router = useRouter()
-const route  = useRoute()
 const auth   = useAuthStore()
 
 const email    = ref('')
@@ -37,8 +37,7 @@ async function submit() {
 
     auth.setSession({ token: response.token, user: response.user })
 
-    const redirect = route.query.redirect || '/expenses'
-    router.push(redirect)
+    router.push({ name: 'home' })
   } catch (err) {
     errors.value.global = err.message || 'Échec de la connexion. Vérifiez vos identifiants.'
   } finally {
@@ -52,7 +51,7 @@ async function submit() {
     <div class="auth-page__card">
       <!-- Brand -->
       <div class="auth-page__brand">
-        <span class="auth-page__logo" aria-hidden="true">🌑</span>
+        <img :src="logoUrl" alt="Abyss" class="auth-page__logo-img" />
         <BaseText as="h1" size="3xl" weight="bold" color="primary">ABYSS</BaseText>
         <BaseText as="p" size="sm" color="muted">Connectez-vous à votre espace</BaseText>
       </div>
@@ -136,9 +135,12 @@ async function submit() {
   text-align: center;
 }
 
-.auth-page__logo {
-  font-size: 3rem;
-  line-height: 1;
+.auth-page__logo-img {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 16px;
+  display: block;
   filter: drop-shadow(0 0 20px rgba(79, 142, 247, 0.4));
 }
 
