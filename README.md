@@ -50,7 +50,7 @@ make alice2-demo
 Cette commande va :
 - ✅ Créer le compte `alice2@example.com` avec mot de passe `Alice123!!`
 - ✅ Générer 9 catégories (Alimentation, Transport, Logement, etc.)
-- ✅ Créer 113 transactions sur 4 mois avec patterns réalistes
+- ✅ Créer 300 opérations sur 4 mois avec patterns réalistes
 - ✅ Inclure revenus, dépenses fixes et variables
 
 ### Se connecter avec Alice2
@@ -175,13 +175,11 @@ VITE_API_URL=http://localhost:3000
 Le compte Alice2 inclut :
 
 - **9 catégories** organisées hiérarchiquement
-- **113 transactions** sur 4 mois (janvier-avril 2026)
+- **300 opérations** sur une période de 4 mois
 - **Patterns réalistes** :
-  - Courses : 3x/semaine (20-60€)
-  - Transport : 2x/mois (20-100€)
-  - Loyer : 1x/mois (400-600€)
-  - Salaire : 2x/mois (2200-2500€)
-  - Loisirs, santé, abonnements...
+  - Courses, restaurant, café, transport, abonnements
+  - Salaire et épargne réguliers
+  - Loisirs, santé, habillement, divers
 
 ## 🐛 Dépannage
 
