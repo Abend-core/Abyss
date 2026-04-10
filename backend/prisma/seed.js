@@ -43,7 +43,7 @@ async function seed() {
   console.log('🌱 Seed Abyss...')
 
   // ── Supprimer les données existantes pour Alice ──────────────
-  await prisma.item.deleteMany({ where: { userId: ALICE_ID } })
+  await prisma.operation.deleteMany({ where: { userId: ALICE_ID } })
   await prisma.category.deleteMany({ where: { userId: ALICE_ID } })
   await prisma.userParam.deleteMany({ where: { userId: ALICE_ID } })
   await prisma.user.deleteMany({ where: { id: ALICE_ID } })
@@ -84,7 +84,7 @@ async function seed() {
         id:            cat.id,
         userId:        ALICE_ID,
         nameEncrypted: encryptValue(cat.name, 'category-name'),
-        colorEncrypted: cat.color ? encryptValue(cat.color, 'category-color') : null,
+        color:         cat.color || null,
         position:      cat.position,
       },
     })
@@ -97,17 +97,17 @@ async function seed() {
       ? CATEGORIES[item.categoryIdx].id
       : null
 
-    await prisma.item.create({
+    await prisma.operation.create({
       data: {
-        id:          item.id,
-        userId:      ALICE_ID,
+        id:              item.id,
+        userId:          ALICE_ID,
         categoryId,
-        title:       item.title,
-        amount:      item.amount,
-        date:        new Date(item.date),
-        type:        item.type,
-        isRecurring: item.isRecurring || false,
-        recurrence:  item.recurrence || null,
+        titleEncrypted:  encryptValue(item.title, 'operation-title'),
+        amountEncrypted: encryptValue(item.amount.toString(), 'operation-amount'),
+        date:            new Date(item.date),
+        type:            item.type,
+        isRecurring:     item.isRecurring || false,
+        recurrence:      item.recurrence || null,
       },
     })
   }

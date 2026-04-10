@@ -27,7 +27,8 @@ model User {
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
 
-  items          Item[]
+  operations     Operation[]
+  recurrenceRules RecurrenceRule[]
   categories     Category[]
   params         UserParam[]
 
@@ -40,7 +41,6 @@ model Category {
   userId        String   @map("user_id") @db.Uuid
   parentId      String?  @map("parent_id") @db.Uuid
   nameEncrypted String   @map("name_encrypted") @db.Text
-  colorEncrypted String? @map("color_encrypted") @db.Text
   color         String?  @db.VarChar(7)  // Hex color (#RRGGBB) — not encrypted for performance
   position      Int?     @db.Integer
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz()
@@ -49,10 +49,12 @@ model Category {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent        Category? @relation("CategoryChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children      Category[] @relation("CategoryChildren")
-  items         Item[]
+  operations    Operation[]
+  recurrenceRules RecurrenceRule[]
 
   @@index([userId])
   @@index([parentId])
+  @@unique([userId, nameEncrypted])
   @@map("categories")
   @@schema("dbo")
 }
@@ -77,25 +79,51 @@ model UserParam {
 // ============================================================
 // Model: Item
 // ============================================================
-model Item {
-  id            String    @id @default(uuid()) @db.Uuid
-  userId        String    @map("user_id") @db.Uuid
-  categoryId    String?   @map("category_id") @db.Uuid
-  title         String    @db.VarChar(255)
-  amount        Decimal   @db.Decimal(10, 2)
-  date          DateTime  @db.Date
-  isRecurring   Boolean   @default(false) @map("is_recurring")
-  recurrence    String?   @db.VarChar(50)  // 'daily', 'weekly', 'monthly', 'yearly'
-  description   String?   @db.Text
-  type          String    @db.VarChar(20) @default("expense")
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz()
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+model Operation {
+  id               String          @id @default(uuid()) @db.Uuid
+  userId           String          @map("user_id") @db.Uuid
+  categoryId       String?         @map("category_id") @db.Uuid
+  recurrenceRuleId String?         @map("recurrence_rule_id") @db.Uuid
+  titleEncrypted   String          @map("title_encrypted") @db.Text
+  amountEncrypted  String          @map("amount_encrypted") @db.Text
+  date             DateTime        @db.Date
+  isRecurring      Boolean         @default(false) @map("is_recurring")
+  recurrence       String?         @db.VarChar(50)  // 'daily', 'weekly', 'monthly', 'yearly'
+  description      String?         @db.Text
+  type             String          @db.VarChar(20) @default("expense")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
 
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category         Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurrenceRule   RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([categoryId])
-  @@map("items")
+  @@index([recurrenceRuleId])
+  @@map("operations")
+  @@schema("dbo")
+}
+
+model RecurrenceRule {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  categoryId      String?      @map("category_id") @db.Uuid
+  titleEncrypted  String       @map("title_encrypted") @db.Text
+  amountEncrypted String       @map("amount_encrypted") @db.Text
+  startDate       DateTime     @map("start_date") @db.Date
+  recurrence      String       @db.VarChar(50)
+  type            String       @db.VarChar(20) @default("expense")
+  description     String?      @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  operations      Operation[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@map("recurrence_rules")
   @@schema("dbo")
 }

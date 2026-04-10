@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { buildApp } from '../src/app.js'
-import { encryptValue } from '../src/utils/crypto.js'
+import { buildApp } from '../src/app.ts'
+import { encryptValue } from '../src/utils/crypto.ts'
 
 beforeAll(() => {
   process.env.MASTER_SECRET = 'b'.repeat(64)
@@ -16,7 +16,7 @@ function createMock() {
     user: { findUnique: vi.fn() },
     userParam: { findMany: vi.fn() },
     category: { findMany: vi.fn(), findFirst: vi.fn() },
-    item: {
+    operation: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
       count: vi.fn(),
@@ -24,8 +24,29 @@ function createMock() {
       update: vi.fn(),
       delete: vi.fn(),
     },
+    recurrenceRule: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    },
     $queryRaw: vi.fn().mockResolvedValue([]),
     $disconnect: vi.fn(),
+  }
+}
+
+function makeOperation({ id, title, amount, date, type = 'expense', isRecurring = false, recurrence = null, description = null, category = null, recurrenceRuleId = null }) {
+  return {
+    id,
+    titleEncrypted: encryptValue(title, 'operation-title'),
+    amountEncrypted: encryptValue(amount.toString(), 'operation-amount'),
+    type,
+    date: new Date(date),
+    isRecurring,
+    recurrence,
+    description,
+    category,
+    recurrenceRuleId,
   }
 }
 
@@ -41,18 +62,13 @@ describe('Expense endpoints', () => {
   afterEach(async () => { if(app) await app.close() })
 
   it('GET /api/user/expenses/recent — 200', async () => {
-    prisma.item.findMany.mockResolvedValue([
-      {
+    prisma.operation.findMany.mockResolvedValue([
+      makeOperation({
         id: 'exp1',
         title: 'Coffee',
-        amount: 5n,
-        type: 'expense',
+        amount: 5,
         date: new Date(),
-        isRecurring: false,
-        recurrence: null,
-        description: null,
-        category: null
-      }
+      })
     ])
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
@@ -65,8 +81,8 @@ describe('Expense endpoints', () => {
   })
 
   it('GET /api/user/expenses — 200 paginated', async () => {
-    prisma.item.findMany.mockResolvedValue([])
-    prisma.item.count.mockResolvedValue(42)
+    prisma.operation.findMany.mockResolvedValue([])
+    prisma.operation.count.mockResolvedValue(42)
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'GET',
@@ -81,8 +97,8 @@ describe('Expense endpoints', () => {
   })
 
   it('GET /api/user/expenses — hasMore false at end', async () => {
-    prisma.item.findMany.mockResolvedValue([])
-    prisma.item.count.mockResolvedValue(5)
+    prisma.operation.findMany.mockResolvedValue([])
+    prisma.operation.count.mockResolvedValue(5)
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'GET',
@@ -93,17 +109,12 @@ describe('Expense endpoints', () => {
   })
 
   it('POST /api/user/expenses — 201', async () => {
-    prisma.item.create.mockResolvedValue({
+    prisma.operation.create.mockResolvedValue(makeOperation({
       id: 'exp-new',
       title: 'Lunch',
-      amount: 15n,
-      type: 'expense',
-      date: new Date(),
-      isRecurring: false,
-      recurrence: null,
-      description: null,
-      category: null
-    })
+      amount: 15,
+      date: '2024-01-15',
+    }))
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'POST',
@@ -140,17 +151,16 @@ describe('Expense endpoints', () => {
   })
 
   it('POST /api/user/expenses with recurring — 201', async () => {
-    prisma.item.create.mockResolvedValue({
+    prisma.recurrenceRule.create.mockResolvedValue({ id: 'rule1' })
+    prisma.operation.create.mockResolvedValue(makeOperation({
       id: 'exp-rec',
       title: 'Subscription',
-      amount: 99n,
-      type: 'expense',
-      date: new Date(),
+      amount: 99,
+      date: '2024-01-15',
       isRecurring: true,
       recurrence: 'monthly',
-      description: null,
-      category: null
-    })
+      recurrenceRuleId: 'rule1',
+    }))
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'POST',
@@ -172,28 +182,20 @@ describe('Expense endpoints', () => {
 
   it('PUT /api/user/expenses/:id — 200', async () => {
     const expId = '550e8400-e29b-41d4-a716-446655440001'
-    prisma.item.findFirst.mockResolvedValue({
+    prisma.operation.findFirst.mockResolvedValue(makeOperation({
       id: expId,
       title: 'Old',
-      amount: 10n,
+      amount: 10,
       date: new Date(),
-      type: 'expense',
-      isRecurring: false,
-      recurrence: null,
-      categoryId: null,
-      description: null
-    })
-    prisma.item.update.mockResolvedValue({
+      category: null,
+    }))
+    prisma.operation.update.mockResolvedValue(makeOperation({
       id: expId,
       title: 'Updated',
-      amount: 20n,
-      type: 'expense',
+      amount: 20,
       date: new Date(),
-      isRecurring: false,
-      recurrence: null,
-      description: null,
-      category: null
-    })
+      category: null,
+    }))
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'PUT',
@@ -207,7 +209,7 @@ describe('Expense endpoints', () => {
 
   it('PUT /api/user/expenses/:id — 404', async () => {
     const expId = '550e8400-e29b-41d4-a716-446655440002'
-    prisma.item.findFirst.mockResolvedValue(null)
+    prisma.operation.findFirst.mockResolvedValue(null)
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'PUT',
@@ -221,8 +223,8 @@ describe('Expense endpoints', () => {
 
   it('DELETE /api/user/expenses/:id — 200', async () => {
     const expId = '550e8400-e29b-41d4-a716-446655440003'
-    prisma.item.findFirst.mockResolvedValue({ id: expId })
-    prisma.item.delete.mockResolvedValue({})
+    prisma.operation.findFirst.mockResolvedValue(makeOperation({ id: expId, title: 'ToDelete', amount: 5, date: new Date() }))
+    prisma.operation.delete.mockResolvedValue({})
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'DELETE',
@@ -235,7 +237,7 @@ describe('Expense endpoints', () => {
 
   it('DELETE /api/user/expenses/:id — 404', async () => {
     const expId = '550e8400-e29b-41d4-a716-446655440004'
-    prisma.item.findFirst.mockResolvedValue(null)
+    prisma.operation.findFirst.mockResolvedValue(null)
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'DELETE',
