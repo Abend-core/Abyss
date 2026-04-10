@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi.js'
 import { useAuthStore } from '@/stores/auth.store.js'
@@ -6,7 +6,7 @@ import { useAppStore } from '@/stores/app.store.js'
 
 export function useSettingsPage() {
   const router = useRouter()
-  const api = useApi()
+  const { api } = useApi()
   const authStore = useAuthStore()
   const appStore = useAppStore()
 
@@ -37,21 +37,24 @@ export function useSettingsPage() {
       accountId.value = account.id
       currency.value = account.settings?.currency ?? 'EUR'
     } catch (error) {
-      appStore.notify({ type: 'error', message: 'Impossible de charger les paramètres.' })
+      const message = error.message || 'Impossible de charger les paramètres.'
+      appStore.notify({ type: 'error', message })
+      console.error('Settings load error:', error)
     }
   }
 
   // ── Save currency ─────────────────────────────────
-  async function saveCurrency() {
+  async function saveCurrency(newCurrency) {
+    const value = newCurrency || currency.value
     try {
-      await api('/api/user', { method: 'PUT', body: { currency: currency.value } })
+      await api('/api/user', { method: 'PUT', body: { currency: value } })
       appStore.notify({
         type: 'success',
         message: 'Devise mise à jour. Les montants seront recalculés au prochain chargement.',
       })
       await loadSettings()
     } catch (error) {
-      appStore.notify({ type: 'error', message: 'Impossible d'enregistrer les paramètres.' })
+      appStore.notify({ type: 'error', message: error.message || 'Impossible d\'enregistrer les paramètres.' })
     }
   }
 
@@ -67,6 +70,7 @@ export function useSettingsPage() {
     }
 
     isExporting.value = true
+    await nextTick()
     try {
       const data = await api('/api/account/export', {
         method: 'POST',

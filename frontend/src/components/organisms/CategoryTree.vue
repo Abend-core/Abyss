@@ -89,6 +89,7 @@ function onTouchEnd() {
         :style="{ marginLeft: `${level * 22}px` }"
         :data-cat-id="cat.id"
         draggable="true"
+        @click="$emit('edit', cat)"
         @dragstart="onDragStart($event, cat.id)"
         @dragend="onDragEnd"
         @dragover="onDragOver"
@@ -117,12 +118,6 @@ function onTouchEnd() {
           </button>
           <button v-if="!cat.parentId && !cat.children?.length" class="ct__btn ct__btn--indent" title="Mettre en sous-groupe" @click.stop="$emit('indent',    cat)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button class="ct__btn ct__btn--edit" title="Modifier"             @click.stop="$emit('edit', cat)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-          <button class="ct__btn ct__btn--delete" title="Supprimer"             @click.stop="$emit('delete',    cat.id)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
           </button>
         </div>
       </div>

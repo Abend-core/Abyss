@@ -27,10 +27,13 @@
           </div>
         </form>
         <div class="modal__footer">
-          <BaseButton variant="ghost" size="sm" @click="$emit('close')">Annuler</BaseButton>
-          <BaseButton variant="primary" size="sm" @click="$emit('save')" :disabled="!editForm.name.trim()">
-            Enregistrer
-          </BaseButton>
+          <BaseButton variant="danger" size="sm" @click="$emit('delete')">Supprimer</BaseButton>
+          <div class="modal__footer-right">
+            <BaseButton variant="ghost" size="sm" @click="$emit('close')">Annuler</BaseButton>
+            <BaseButton variant="primary" size="sm" @click="$emit('save')" :disabled="!editForm.name.trim()">
+              Enregistrer
+            </BaseButton>
+          </div>
         </div>
       </div>
     </div>
@@ -48,7 +51,7 @@ defineProps({
   editForm: { type: Object, required: true },
 })
 
-defineEmits(['close', 'update:editForm', 'save'])
+defineEmits(['close', 'update:editForm', 'save', 'delete'])
 </script>
 
 <style scoped>
@@ -128,6 +131,18 @@ defineEmits(['close', 'update:editForm', 'save'])
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   cursor: pointer;
+}
+
+.modal__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.modal__footer-right {
+  display: flex;
+  gap: var(--space-2);
 }
 
 /* ── Transitions ──────────────────────────────────── */

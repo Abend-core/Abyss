@@ -89,8 +89,23 @@ defineEmits(['export', 'select-import', 'confirm-import', 'cancel-import', 'hand
   border-bottom: 1px solid var(--color-border);
 }
 
+.setting-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .setting-row:last-child {
   border-bottom: none;
+}
+
+/* Mobile - empilement vertical */
+@media (max-width: 640px) {
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
 }
 
 .hidden-file-input {

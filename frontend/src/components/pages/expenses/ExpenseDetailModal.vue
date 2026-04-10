@@ -4,52 +4,107 @@
       <div class="modal" role="dialog" aria-modal="true">
         <div class="modal__header">
           <BaseText weight="semibold" size="lg">Détail de l'opération</BaseText>
-          <button class="icon-btn" @click="$emit('close')" type="button">
+          <button class="icon-btn" @click="handleClose" type="button">
             <BaseIcon name="close" :size="20" />
           </button>
         </div>
         <div class="modal__body">
           <div class="modal__amount">
-            <span class="modal__amount-value" :style="{ color: getOperationColor(selected) }">
-              {{ selected.type === 'credit' ? '+' : '-' }}{{ selected.amount.toFixed(2) }}
+            <span class="modal__amount-value" :style="{ color: getOperationColor(editForm) }">
+              {{ editForm.type === 'credit' ? '+' : '-' }}{{ Number(editForm.amount).toFixed(2) }}
             </span>
             <span class="modal__amount-cur">{{ currency }}</span>
           </div>
           <dl class="modal__details">
             <div class="modal__row">
               <dt>Nom</dt>
-              <dd>{{ selected.title }}</dd>
+              <dd v-if="!isEditing">{{ selected.title }}</dd>
+              <dd v-else>
+                <BaseInput
+                  :model-value="editForm.title"
+                  @update:model-value="value => editForm.title = value"
+                  placeholder="Titre de l'opération"
+                />
+              </dd>
             </div>
             <div class="modal__row">
               <dt>Date</dt>
-              <dd>{{ formatDate(selected.date) }}</dd>
+              <dd v-if="!isEditing">{{ formatDate(selected.date) }}</dd>
+              <dd v-else>
+                <BaseInput
+                  :model-value="editForm.date"
+                  type="date"
+                  @update:model-value="value => editForm.date = value"
+                />
+              </dd>
             </div>
             <div class="modal__row">
               <dt>Type</dt>
-              <dd>{{ selected.type === 'credit' ? 'Crédit' : 'Dépense' }}</dd>
-            </div>
-            <div v-if="selected.category" class="modal__row">
-              <dt>Catégorie</dt>
-              <dd>
-                <span class="modal__cat-dot" :style="{ background: getCategoryColor(selected) }" />
-                {{ getCategoryPath(selected.category) }}
+              <dd v-if="!isEditing">{{ selected.type === 'credit' ? 'Crédit' : 'Dépense' }}</dd>
+              <dd v-else>
+                <select v-model="editForm.type" class="form-select" required>
+                  <option value="expense">Dépense</option>
+                  <option value="credit">Crédit</option>
+                </select>
               </dd>
             </div>
-            <div v-if="selected.isRecurring" class="modal__row">
-              <dt>Récurrence</dt>
-              <dd>{{ RECURRENCE_LABELS[selected.recurrence] ?? selected.recurrence }}</dd>
+            <div class="modal__row">
+              <dt>Catégorie</dt>
+              <dd v-if="!isEditing">{{ getCategoryPath(selected.category) }}</dd>
+              <dd v-else>
+                <select v-model="editForm.categoryId" class="form-select">
+                  <option value="">Sans catégorie</option>
+                  <option v-for="category in categories" :key="category.id" :value="category.id">
+                    {{ category.name }}
+                  </option>
+                </select>
+              </dd>
             </div>
-            <div v-if="selected.description" class="modal__row">
-              <dt>Note</dt>
-              <dd>{{ selected.description }}</dd>
+            <div class="modal__row">
+              <dt>Description</dt>
+              <dd v-if="!isEditing">{{ selected.description || '-' }}</dd>
+              <dd v-else>
+                <BaseInput
+                  :model-value="editForm.description"
+                  @update:model-value="value => editForm.description = value"
+                  placeholder="Notes supplémentaires"
+                />
+              </dd>
             </div>
           </dl>
         </div>
         <div class="modal__footer">
-          <BaseButton variant="ghost" size="sm" @click="$emit('close')">Fermer</BaseButton>
-          <BaseButton variant="danger" size="sm" :loading="isDeleting" @click="$emit('delete', selected)">
+          <BaseButton variant="ghost" size="sm" @click="handleClose">
+            {{ isEditing ? 'Annuler' : 'Fermer' }}
+          </BaseButton>
+          <BaseButton
+            v-if="!isEditing"
+            variant="danger"
+            size="sm"
+            :loading="props.isDeleting"
+            @click="$emit('delete', selected)"
+          >
             <BaseIcon name="trash" :size="14" />
             Supprimer
+          </BaseButton>
+          <BaseButton
+            v-if="!isEditing"
+            variant="secondary"
+            size="sm"
+            @click="startEdit"
+          >
+            <BaseIcon name="edit" :size="14" />
+            Modifier
+          </BaseButton>
+          <BaseButton
+            v-else
+            variant="primary"
+            size="sm"
+            :disabled="isSaveDisabled"
+            @click="saveChanges"
+          >
+            <BaseIcon name="check" :size="14" />
+            Enregistrer
           </BaseButton>
         </div>
       </div>
@@ -58,8 +113,10 @@
 </template>
 
 <script setup>
+import { computed, reactive, ref, watch } from 'vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseIcon from '@/components/atoms/BaseIcon.vue'
+import BaseInput from '@/components/atoms/BaseInput.vue'
 import BaseText from '@/components/atoms/BaseText.vue'
 
 const RECURRENCE_LABELS = {
@@ -71,17 +128,77 @@ const RECURRENCE_LABELS = {
   yearly: 'Annuelle',
 }
 
-defineProps({
+const props = defineProps({
   selected: { type: Object, default: null },
   currency: { type: String, required: true },
-  isDeleting: { type: Boolean, required: true },
   formatDate: { type: Function, required: true },
   getOperationColor: { type: Function, required: true },
   getCategoryColor: { type: Function, required: true },
   getCategoryPath: { type: Function, required: true },
+  categories: { type: Array, default: () => [] },
+  isDeleting: { type: Boolean, default: false },
 })
 
-defineEmits(['close', 'delete'])
+const emit = defineEmits(['close', 'save', 'delete'])
+
+const isEditing = ref(false)
+const editForm = reactive({
+  title: '',
+  amount: 0,
+  date: '',
+  type: 'expense',
+  categoryId: '',
+  description: '',
+})
+
+watch(() => props.selected, (expense) => {
+  isEditing.value = false
+  if (expense) {
+    editForm.title = expense.title
+    editForm.amount = expense.amount
+    editForm.date = expense.date
+    editForm.type = expense.type || 'expense'
+    editForm.categoryId = expense.category?.id || ''
+    editForm.description = expense.description || ''
+  }
+}, { immediate: true })
+
+function startEdit() {
+  isEditing.value = true
+}
+
+function resetEditForm() {
+  if (!props.selected) return
+  editForm.title = props.selected.title
+  editForm.amount = props.selected.amount
+  editForm.date = props.selected.date
+  editForm.type = props.selected.type || 'expense'
+  editForm.categoryId = props.selected.category?.id || ''
+  editForm.description = props.selected.description || ''
+}
+
+function handleClose() {
+  if (isEditing.value) {
+    resetEditForm()
+    isEditing.value = false
+    return
+  }
+  emit('close')
+}
+
+function saveChanges() {
+  emit('save', {
+    id: props.selected.id,
+    title: editForm.title,
+    amount: Number(editForm.amount),
+    date: editForm.date,
+    type: editForm.type,
+    categoryId: editForm.categoryId || undefined,
+    description: editForm.description,
+  })
+}
+
+const isSaveDisabled = computed(() => !editForm.title?.trim() || Number.isNaN(Number(editForm.amount)) || Number(editForm.amount) <= 0)
 </script>
 
 <style scoped>
@@ -107,14 +224,13 @@ defineEmits(['close', 'delete'])
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   z-index: var(--z-modal);
-  padding: 0;
+  padding: var(--space-4);
 }
 @media (min-width: 640px) {
   .modal-overlay {
-    align-items: center;
     padding: var(--space-4);
   }
 }
@@ -165,6 +281,29 @@ defineEmits(['close', 'delete'])
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+}
+.form-select {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
+  padding-right: 2.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right var(--space-2) center;
+  background-repeat: no-repeat;
+  background-size: 1.5em;
+  transition: border-color var(--transition-fast);
+}
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
 }
 .modal__row {
   display: flex;

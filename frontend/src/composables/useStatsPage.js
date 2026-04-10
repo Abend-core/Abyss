@@ -14,6 +14,39 @@ export function useStatsPage() {
   const categories = ref([])
   const isLoading = ref(false)
   const currency = ref('€')
+  const selectedMonth = ref('')
+
+  const availableMonths = computed(() => {
+    const monthSet = new Set()
+    expenses.value.forEach(e => {
+      if (e.date) monthSet.add(e.date.slice(0, 7))
+    })
+    return Array.from(monthSet).sort()
+  })
+
+  const monthLabels = computed(() => {
+    return availableMonths.value.map(month => {
+      const [year, mo] = month.split('-')
+      return `${new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01`))}`
+    })
+  })
+
+  const monthOptions = computed(() => {
+    return availableMonths.value.map((month, index) => ({ value: month, label: monthLabels.value[index] }))
+  })
+
+  watch(availableMonths, (months) => {
+    if (!selectedMonth.value && months.length > 0) {
+      selectedMonth.value = months[months.length - 1]
+    }
+    if (selectedMonth.value && !months.includes(selectedMonth.value)) {
+      selectedMonth.value = months[months.length - 1] || ''
+    }
+  }, { immediate: true })
+
+  function setSelectedMonth(month) {
+    selectedMonth.value = month
+  }
 
   // ── KPIs ──────────────────────────────────────────
   const totalExpenses = computed(() => {
@@ -160,24 +193,37 @@ export function useStatsPage() {
   }
 
   function buildMonthlyEvolutionChart() {
-    const monthMap = new Map()
+    const selected = selectedMonth.value || availableMonths.value[availableMonths.value.length - 1]
+    if (!selected) return
+
+    const startDate = new Date(`${selected}-01`)
+    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
+    const daysInMonth = endDate.getDate()
+
+    const dayMap = Array.from({ length: daysInMonth }, (_, index) => ({
+      day: index + 1,
+      expense: 0,
+      credit: 0,
+    }))
+
     expenses.value.forEach(e => {
-      const month = new Date(e.date).toISOString().slice(0, 7)
-      if (!monthMap.has(month)) monthMap.set(month, { expense: 0, credit: 0 })
-      const m = monthMap.get(month)
-      if (e.type === 'expense') m.expense += e.amount
-      else m.credit += e.amount
+      const expenseMonth = e.date.slice(0, 7)
+      if (expenseMonth !== selected) return
+      const day = new Date(e.date).getDate()
+      if (!dayMap[day - 1]) return
+      if (e.type === 'expense') {
+        dayMap[day - 1].expense += e.amount
+      } else {
+        dayMap[day - 1].credit += e.amount
+      }
     })
 
-    const sortedMonths = Array.from(monthMap.keys()).sort()
-    const expenseData = sortedMonths.map(m => monthMap.get(m).expense)
-    const creditData = sortedMonths.map(m => monthMap.get(m).credit)
+    const labels = dayMap.map(item => item.day.toString())
+    const expenseData = dayMap.map(item => item.expense)
+    const creditData = dayMap.map(item => item.credit)
 
     const data = {
-      labels: sortedMonths.map(m => {
-        const [y, mo] = m.split('-')
-        return `${mo}/${y.slice(2)}`
-      }),
+      labels,
       datasets: [
         {
           label: 'Dépenses',
@@ -294,9 +340,14 @@ export function useStatsPage() {
 
   // ── Watchers ──────────────────────────────────────
   watch(() => appStore.isDark, () => buildCharts(), { flush: 'post' })
+  watch(expenses, () => buildCharts(), { flush: 'post' })
+  watch(selectedMonth, () => {
+    buildMonthlyEvolutionChart()
+  }, { flush: 'post' })
 
   onMounted(async () => {
     await loadData()
+    await nextTick()
     buildCharts()
   })
 
@@ -313,6 +364,12 @@ export function useStatsPage() {
     netBalance,
     monthlyAverage,
     recurringCount,
+
+    // Mois disponibles
+    availableMonths,
+    monthOptions,
+    selectedMonth,
+    setSelectedMonth,
 
     // Fonctions
     loadData,

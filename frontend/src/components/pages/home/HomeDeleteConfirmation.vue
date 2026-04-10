@@ -37,3 +37,73 @@ const emit = defineEmits(['close', 'confirm'])
     </div>
   </Transition>
 </template>
+
+<style scoped>
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: var(--space-4);
+}
+
+.modal {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  width: min(100%, 440px);
+  overflow: hidden;
+}
+
+.modal__header,
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.modal__header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal__body {
+  padding: var(--space-4) var(--space-5);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  display: flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+}
+
+.icon-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity var(--transition-fast);
+}
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}
+.modal-fade-enter-active .modal,
+.modal-fade-leave-active .modal {
+  transition: transform var(--transition-normal);
+}
+.modal-fade-enter-from .modal,
+.modal-fade-leave-to .modal {
+  transform: translateY(24px);
+}
+</style>

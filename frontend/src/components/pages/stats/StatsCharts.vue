@@ -8,7 +8,19 @@
     </div>
 
     <div class="chart-container">
-      <BaseText as="h3" size="lg" weight="semibold" class="chart-title">Évolution mensuelle</BaseText>
+      <div class="chart-header">
+        <BaseText as="h3" size="lg" weight="semibold" class="chart-title">Évolution mensuelle</BaseText>
+        <div v-if="monthOptions.length" class="chart-select">
+          <label>
+            Mois
+            <select :value="selectedMonth" @change="$emit('update:selectedMonth', $event.target.value)">
+              <option v-for="option in monthOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+        </div>
+      </div>
       <div class="chart-wrapper">
         <canvas id="chartMonthlyEvolution"></canvas>
       </div>
@@ -33,9 +45,12 @@
 <script setup>
 import BaseText from '@/components/atoms/BaseText.vue'
 
-defineProps({
-  // Les charts sont générés par la composable via onMounted
+const props = defineProps({
+  monthOptions: { type: Array, default: () => [] },
+  selectedMonth: { type: String, default: '' },
 })
+
+const emit = defineEmits(['update:selectedMonth'])
 </script>
 
 <style scoped>
@@ -64,6 +79,30 @@ defineProps({
   position: relative;
   height: 300px;
   width: 100%;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.chart-select label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.chart-select select {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-base);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
 }
 
 @media (max-width: 640px) {

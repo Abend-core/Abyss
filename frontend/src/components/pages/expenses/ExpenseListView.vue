@@ -54,10 +54,11 @@
         <BaseText size="xs" color="secondary">Chargement...</BaseText>
       </div>
 
-      <div v-else-if="!hasMore && expenses.length > 0" class="history-note">
-        <BaseText size="xs" color="secondary">
-          Toutes les opérations sont affichées.
-        </BaseText>
+      <div class="add-expense-container">
+        <BaseButton variant="secondary" size="sm" @click="$emit('add-expense')">
+          <BaseIcon name="plus" :size="14" />
+          Ajouter une opération
+        </BaseButton>
       </div>
     </template>
   </div>
@@ -116,6 +117,8 @@ defineEmits(['select', 'add-expense'])
 
 /* ── Expense card ────────────────────────────────── */
 .expense-card {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -125,13 +128,14 @@ defineEmits(['select', 'add-expense'])
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   padding: var(--space-4);
-  cursor: default;
+  cursor: pointer;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 .expense-card:hover {
   border-color: var(--color-primary);
   box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
+  transform: none;
+  z-index: 2;
 }
 
 .expense-card__main {
@@ -194,6 +198,12 @@ defineEmits(['select', 'add-expense'])
   gap: var(--space-2);
   padding: var(--space-4);
   color: var(--color-text-secondary);
+}
+
+.add-expense-container {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4) 0;
 }
 
 /* ── Responsive ──────────────────────────────────── */

@@ -19,6 +19,9 @@
             placeholder="••••••••"
             @update:model-value="$emit('update:exportPassword', $event)"
           />
+          <BaseText v-if="isExporting" color="secondary" size="sm">
+            Export en cours, cela peut prendre quelques secondes. Ne fermez pas cette fenêtre.
+          </BaseText>
         </div>
         <div class="modal__footer">
           <BaseButton variant="ghost" size="sm" @click="$emit('close')">Annuler</BaseButton>

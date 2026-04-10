@@ -7,7 +7,7 @@
           <BaseText weight="semibold">Devise de base</BaseText>
           <BaseText size="sm" color="secondary">Sélectionnez votre devise par défaut</BaseText>
         </div>
-        <select v-model="currency" class="form-select" @change="$emit('save')">
+        <select :value="currency" class="form-select" @change="handleCurrencyChange($event)">
           <option v-for="opt in currencyOptions" :key="opt.code" :value="opt.code">
             {{ opt.label }}
           </option>
@@ -20,12 +20,18 @@
 <script setup>
 import BaseText from '@/components/atoms/BaseText.vue'
 
-defineProps({
+const props = defineProps({
   currency: { type: String, required: true },
   currencyOptions: { type: Array, required: true },
 })
 
-defineEmits(['update:currency', 'save'])
+const emit = defineEmits(['update:currency', 'save'])
+
+function handleCurrencyChange(event) {
+  const value = event.target.value
+  emit('update:currency', value)
+  emit('save', value)
+}
 </script>
 
 <style scoped>
@@ -58,8 +64,23 @@ defineEmits(['update:currency', 'save'])
   border-bottom: 1px solid var(--color-border);
 }
 
+.setting-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .setting-row:last-child {
   border-bottom: none;
+}
+
+/* Mobile - empilement vertical */
+@media (max-width: 640px) {
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
 }
 
 .form-select {

@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import HomeHero from '@/components/pages/home/HomeHero.vue'
 import HomeFiltersModal from '@/components/pages/home/HomeFiltersModal.vue'
 import HomeExpenseList from '@/components/pages/home/HomeExpenseList.vue'
@@ -7,51 +8,68 @@ import HomeDeleteConfirmation from '@/components/pages/home/HomeDeleteConfirmati
 import { useHomePage } from '@/composables/useHomePage.js'
 
 const page = useHomePage()
+
+// Computed properties pour exposer les valeurs des refs
+const showFiltersModal = computed(() => page.showFiltersModal.value)
+const categories = computed(() => page.categories.value)
+const hasActiveFilters = computed(() => page.hasActiveFilters.value)
+const total = computed(() => page.total.value)
+const filteredExpenses = computed(() => page.filteredExpenses.value)
+const hasUncategorized = computed(() => page.hasUncategorized.value)
+const currency = computed(() => page.currency.value)
+const isLoading = computed(() => page.isLoading.value)
+const isLoadingMore = computed(() => page.isLoadingMore.value)
+const hasMore = computed(() => page.hasMore.value)
+const editingExpense = computed(() => page.editingExpense.value)
+const isSubmitting = computed(() => page.isSubmitting.value)
+const isDeleting = computed(() => page.isDeleting.value)
+const showDeleteConfirmation = computed(() => page.showDeleteConfirmation.value)
 </script>
 
 <template>
   <div class="home-page">
     <HomeFiltersModal
-      :show="page.showFiltersModal"
+      :show="showFiltersModal"
       :filters="page.filters"
-      :categories="page.categories"
-      :hasActiveFilters="page.hasActiveFilters"
-      @update:show="value => page.showFiltersModal = value"
+      :categories="categories"
+      :hasActiveFilters="hasActiveFilters"
+      @update:show="value => page.showFiltersModal.value = value"
       @update:filters="page.setFilters"
       @reset-filters="page.resetFilters"
     />
 
     <HomeHero
-      :total="page.total"
-      :filteredCount="page.filteredExpenses.length"
-      :hasActiveFilters="page.hasActiveFilters"
-      :hasUncategorized="page.hasUncategorized"
+      :total="total"
+      :filteredCount="filteredExpenses.length"
+      :hasActiveFilters="hasActiveFilters"
+      :hasMore="hasMore"
+      :hasUncategorized="hasUncategorized"
       :isWithoutCategoryActive="page.filters.withoutCategory"
-      @open-filters="page.showFiltersModal = true"
+      @open-filters="page.showFiltersModal.value = true"
       @reset-filters="page.resetFilters"
       @add-operation="page.goToOperations"
       @toggle-uncategorized="page.filters.withoutCategory = !page.filters.withoutCategory"
     />
 
     <HomeExpenseList
-      :expenses="page.filteredExpenses"
-      :categories="page.categories"
-      :currency="page.currency"
-      :isLoading="page.isLoading"
-      :isLoadingMore="page.isLoadingMore"
-      :hasMore="page.hasMore"
-      :total="page.total"
+      :expenses="filteredExpenses"
+      :categories="categories"
+      :currency="currency"
+      :isLoading="isLoading"
+      :isLoadingMore="isLoadingMore"
+      :hasMore="hasMore"
+      :total="total"
       :limit="page.LIMIT"
       @select-expense="page.openEditModal"
       @load-more="page.loadMore"
     />
 
     <HomeExpenseEditModal
-      :show="page.editingExpense !== null"
+      :show="editingExpense !== null"
       :editForm="page.editForm"
-      :categories="page.categories"
-      :isSubmitting="page.isSubmitting"
-      :isDeleting="page.isDeleting"
+      :categories="categories"
+      :isSubmitting="isSubmitting"
+      :isDeleting="isDeleting"
       @close="page.closeEditModal"
       @update:editForm="page.setEditForm"
       @delete="page.deleteExpense"
@@ -59,9 +77,9 @@ const page = useHomePage()
     />
 
     <HomeDeleteConfirmation
-      :show="page.showDeleteConfirmation && page.editingExpense !== null"
-      :expenseTitle="page.editingExpense?.title || ''"
-      :isDeleting="page.isDeleting"
+      :show="showDeleteConfirmation && editingExpense !== null"
+      :expenseTitle="editingExpense?.title || ''"
+      :isDeleting="isDeleting"
       @close="page.closeDeleteConfirmation"
       @confirm="page.confirmDelete"
     />
@@ -150,6 +168,13 @@ const page = useHomePage()
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+/* Mobile - espace pour le bouton flottant */
+@media (max-width: 767px) {
+  .home-page {
+    padding-bottom: calc(var(--space-5) + 4.5rem);
+  }
 }
 
 .home-page__hero {

@@ -2,7 +2,6 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useApi } from '@/composables/useApi.js'
 import { useAppStore } from '@/stores/app.store.js'
-import { generateRecurrenceDates } from '@/utils/recurrence.js'
 
 export function useExpensesPage() {
   const router = useRouter()
@@ -15,9 +14,9 @@ export function useExpensesPage() {
   const currency = ref('€')
   const isLoading = ref(false)
   const isLoadingMore = ref(false)
-  const hasMore = ref(true)
+  const hasMore = ref(false)
   const offset = ref(0)
-  const pageSize = 15
+  const pageSize = 3
 
   // ── Formulaire ────────────────────────────────────
   const showForm = ref(true)
@@ -30,6 +29,7 @@ export function useExpensesPage() {
     categoryId: '',
     isRecurring: false,
     recurrence: '',
+    description: '',
   })
 
   watch(() => form.value.isRecurring, (isRecurring) => {
@@ -41,22 +41,35 @@ export function useExpensesPage() {
   // ── Modal détail ──────────────────────────────────
   const selected = ref(null)
   const isDeleting = ref(false)
+  const editingExpense = ref(null)
+  const showDeleteConfirmation = ref(false)
+  const pendingDeleteExpense = ref(null)
 
   // ── Chargement initial ────────────────────────────
+  async function fetchExpenses(offsetValue = 0, limit = pageSize) {
+    const res = await api(`/api/user/expenses?offset=${offsetValue}&limit=${limit}`)
+    if (!res?.data) return null
+    return {
+      data: res.data,
+      hasMore: res.hasMore ?? false,
+      count: Array.isArray(res.data) ? res.data.length : 0,
+    }
+  }
+
   async function loadInitial() {
     isLoading.value = true
     offset.value = 0
-    hasMore.value = true
+    hasMore.value = false
     try {
       const [expensesRes, catsRes, userRes] = await Promise.allSettled([
-        api(`/api/user/expenses?offset=${offset.value}&limit=${pageSize}`),
+        fetchExpenses(0, pageSize),
         api('/api/categories'),
         api('/api/user'),
       ])
-      if (expensesRes.status === 'fulfilled') {
-        expenses.value = expensesRes.value?.data ?? []
-        hasMore.value = expensesRes.value?.hasMore ?? false
-        offset.value += pageSize
+      if (expensesRes.status === 'fulfilled' && expensesRes.value) {
+        expenses.value = expensesRes.value.data
+        offset.value = expensesRes.value.count
+        hasMore.value = expensesRes.value.hasMore
       }
       if (catsRes.status === 'fulfilled') categories.value = catsRes.value ?? []
       if (userRes.status === 'fulfilled') {
@@ -75,11 +88,11 @@ export function useExpensesPage() {
 
     isLoadingMore.value = true
     try {
-      const res = await api(`/api/user/expenses?offset=${offset.value}&limit=${pageSize}`)
+      const res = await fetchExpenses(offset.value, pageSize)
       if (res?.data) {
         expenses.value.push(...res.data)
-        hasMore.value = res.hasMore ?? false
-        offset.value += pageSize
+        hasMore.value = res.hasMore
+        offset.value += res.count
       } else {
         hasMore.value = false
       }
@@ -88,6 +101,22 @@ export function useExpensesPage() {
       hasMore.value = false
     } finally {
       isLoadingMore.value = false
+    }
+  }
+
+  async function fillAfterDeletion() {
+    try {
+      const res = await fetchExpenses(offset.value, pageSize - expenses.value.length)
+      if (res?.data?.length) {
+        expenses.value.push(...res.data)
+        offset.value += res.count
+        hasMore.value = res.hasMore
+      } else {
+        hasMore.value = false
+      }
+    } catch (e) {
+      console.error('Erreur restauration après suppression :', e)
+      hasMore.value = false
     }
   }
 
@@ -109,39 +138,25 @@ export function useExpensesPage() {
 
     isSubmitting.value = true
     try {
-      const base = {
+      const payload = {
         title: form.value.title.trim(),
         amount,
         date: form.value.date,
         categoryId: form.value.categoryId || undefined,
         isRecurring: form.value.isRecurring,
         recurrence: form.value.isRecurring ? form.value.recurrence : undefined,
-      }
-      const payloads = [{ ...base, type: form.value.type }]
-      if (form.value.isRecurring && form.value.recurrence) {
-        generateRecurrenceDates(form.value.date, form.value.recurrence, 12).forEach(date => {
-          payloads.push({
-            ...base,
-            date,
-            isRecurring: false,
-            recurrence: null,
-            type: form.value.type,
-          })
-        })
+        description: form.value.description?.trim() || undefined,
+        type: form.value.type,
       }
 
-      const results = []
-      for (const p of payloads) {
-        results.push(await api('/api/user/expenses', { method: 'POST', body: p }))
-      }
-
-      expenses.value.unshift(results[0])
+      const result = await api('/api/user/expenses', { method: 'POST', body: payload })
+      expenses.value.unshift(result)
       expenses.value = expenses.value.slice(0, pageSize)
 
       appStore.notify({
         type: 'success',
         message: form.value.isRecurring
-          ? `Opération créée + ${results.length - 1} occurrences`
+          ? 'Opération créée. Une règle de dépense récurrente a été enregistrée.'
           : 'Opération ajoutée !',
       })
       form.value = {
@@ -152,6 +167,7 @@ export function useExpensesPage() {
         categoryId: '',
         isRecurring: false,
         recurrence: '',
+        description: '',
       }
     } catch (e) {
       appStore.notify({ type: 'error', message: e.message || 'Erreur lors de la création' })
@@ -160,20 +176,109 @@ export function useExpensesPage() {
     }
   }
 
+  async function updateExpense(updatedExpense = null) {
+    const expenseToUpdate = updatedExpense || editingExpense.value
+    if (!expenseToUpdate) return
+
+    const amount = parseFloat(updatedExpense?.amount ?? form.value.amount)
+    const title = (updatedExpense?.title ?? form.value.title).trim()
+    const date = updatedExpense?.date || form.value.date
+    const type = updatedExpense?.type || form.value.type
+    const description = updatedExpense?.description?.trim() || form.value.description?.trim() || undefined
+    const categoryId = updatedExpense?.categoryId || editingExpense.value?.category?.id || selected.value?.category?.id || form.value.categoryId || undefined
+
+    if (!title) {
+      appStore.notify({ type: 'error', message: 'Le nom est requis' })
+      return
+    }
+    if (Number.isNaN(amount) || amount <= 0) {
+      appStore.notify({ type: 'error', message: 'Montant invalide. Saisissez une valeur supérieure à 0.' })
+      return
+    }
+
+    isSubmitting.value = true
+    try {
+      const payload = {
+        title,
+        amount,
+        date,
+        categoryId,
+        type,
+        description,
+      }
+
+      const updated = await api(`/api/user/expenses/${expenseToUpdate.id}`, {
+        method: 'PUT',
+        body: payload,
+      })
+
+      const idx = expenses.value.findIndex(e => e.id === expenseToUpdate.id)
+      if (idx >= 0) expenses.value[idx] = updated
+      selected.value = updated
+
+      if (!updatedExpense) {
+        editingExpense.value = null
+        showForm.value = false
+        form.value = {
+          title: '',
+          amount: '',
+          date: new Date().toISOString().split('T')[0],
+          type: 'expense',
+          categoryId: '',
+          isRecurring: false,
+          recurrence: '',
+          description: '',
+        }
+      }
+
+      appStore.notify({ type: 'success', message: 'Opération modifiée !' })
+    } catch (e) {
+      appStore.notify({ type: 'error', message: e.message || 'Erreur lors de la mise à jour' })
+    } finally {
+      isSubmitting.value = false
+    }
+  }
+
+  async function submitExpense() {
+    if (editingExpense.value) {
+      await updateExpense()
+    } else {
+      await createExpense()
+    }
+  }
+
   // ── Supprimer une opération ───────────────────────
-  async function deleteExpense(expense) {
-    if (!confirm(`Supprimer "${expense.title}" ?`)) return
+  function requestDeleteExpense(expense) {
+    pendingDeleteExpense.value = expense
+    showDeleteConfirmation.value = true
+  }
+
+  async function confirmDeleteExpense() {
+    const expense = pendingDeleteExpense.value
+    if (!expense) return
+
     isDeleting.value = true
     try {
       await api(`/api/user/expenses/${expense.id}`, { method: 'DELETE' })
       expenses.value = expenses.value.filter(e => e.id !== expense.id)
       selected.value = null
+      pendingDeleteExpense.value = null
+      showDeleteConfirmation.value = false
       appStore.notify({ type: 'success', message: 'Opération supprimée' })
+
+      if (expenses.value.length < pageSize && hasMore.value) {
+        await fillAfterDeletion()
+      }
     } catch {
       appStore.notify({ type: 'error', message: 'Erreur lors de la suppression' })
     } finally {
       isDeleting.value = false
     }
+  }
+
+  function closeDeleteConfirmation() {
+    showDeleteConfirmation.value = false
+    pendingDeleteExpense.value = null
   }
 
   // ── Helpers ───────────────────────────────────────
@@ -221,6 +326,22 @@ export function useExpensesPage() {
 
   function openDetail(expense) {
     selected.value = expense
+  }
+
+  function openEdit(expense) {
+    editingExpense.value = expense
+    showForm.value = true
+    selected.value = null
+    form.value = {
+      title: expense.title,
+      amount: expense.amount,
+      date: expense.date,
+      type: expense.type || 'expense',
+      categoryId: expense.category?.id || '',
+      isRecurring: expense.isRecurring,
+      recurrence: expense.recurrence || '',
+      description: expense.description || '',
+    }
   }
 
   function closeDetail() {
@@ -277,17 +398,25 @@ export function useExpensesPage() {
     showForm,
     isSubmitting,
     form,
+    editingExpense,
 
     // Modal
     selected,
     isDeleting,
+    showDeleteConfirmation,
+    pendingDeleteExpense,
 
     // Fonctions
     loadInitial,
     loadMoreExpenses,
+    submitExpense,
     createExpense,
-    deleteExpense,
+    updateExpense,
+    requestDeleteExpense,
+    confirmDeleteExpense,
+    closeDeleteConfirmation,
     openDetail,
+    openEdit,
     closeDetail,
 
     // Helpers

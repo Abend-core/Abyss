@@ -19,7 +19,9 @@ const emit = defineEmits(['update:modelValue'])
 
 const numericValue = computed({
   get: () => {
-    const val = parseFloat(props.modelValue) || 0
+    const raw = String(props.modelValue).replace(',', '.')
+    if (raw === '') return 0
+    const val = parseFloat(raw) || 0
     return Math.max(props.min, Math.min(props.max, val))
   },
   set: (value) => {
@@ -29,7 +31,8 @@ const numericValue = computed({
 
 function increment() {
   if (props.disabled) return
-  const newValue = Math.min(props.max, numericValue.value + props.step)
+  const current = props.modelValue === '' ? 0 : numericValue.value
+  const newValue = Math.min(props.max, current + props.step)
   // Arrondir à 2 décimales pour éviter les erreurs de précision
   const rounded = Math.round(newValue * 100) / 100
   emit('update:modelValue', rounded.toFixed(2))
@@ -37,7 +40,8 @@ function increment() {
 
 function decrement() {
   if (props.disabled) return
-  const newValue = Math.max(props.min, numericValue.value - props.step)
+  const current = props.modelValue === '' ? 0 : numericValue.value
+  const newValue = Math.max(props.min, current - props.step)
   // Arrondir à 2 décimales pour éviter les erreurs de précision
   const rounded = Math.round(newValue * 100) / 100
   emit('update:modelValue', rounded.toFixed(2))
@@ -51,7 +55,8 @@ function handleInput(event) {
     return
   }
 
-  const numValue = parseFloat(value)
+  const raw = value.replace(',', '.')
+  const numValue = parseFloat(raw)
   if (!isNaN(numValue)) {
     const clampedValue = Math.max(props.min, Math.min(props.max, numValue))
     emit('update:modelValue', clampedValue.toString())
@@ -210,6 +215,7 @@ function handleInput(event) {
 }
 
 .stepper-field__input[type=number] {
+  appearance: none;
   -moz-appearance: textfield;
 }
 

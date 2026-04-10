@@ -1,9 +1,10 @@
 <script setup>
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import NavItem from '@/components/molecules/NavItem.vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const ROUTES = [
   { to: '/stats',      icon: 'chart',    label: 'Stats'      },
@@ -32,6 +33,7 @@ function goToOperations() {
 
     <!-- Bouton flottant pour ajouter une opération -->
     <BaseButton
+      v-if="route.name !== 'operations'"
       class="app-footer__fab"
       @click="goToOperations"
       aria-label="Ajouter une opération"

@@ -14,15 +14,34 @@ export function useCategoriesPage() {
 
   // ── Tree builder ──────────────────────────────────
   function buildTree(list) {
+    console.log('buildTree input:', list.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })))
+    
+    // Supprimer les doublons par ID
+    const uniqueList = list.filter((cat, index, arr) => 
+      arr.findIndex(c => c.id === cat.id) === index
+    )
+    
+    console.log('buildTree uniqueList:', uniqueList.map(c => ({ id: c.id, name: c.name, parentId: c.parentId })))
+    
     const map = {}
-    list.forEach(cat => {
+    uniqueList.forEach(cat => {
       map[cat.id] = { ...cat, children: [] }
     })
     const roots = []
-    list.forEach(cat => {
-      if (cat.parentId && map[cat.parentId]) map[cat.parentId].children.push(map[cat.id])
-      else roots.push(map[cat.id])
+    const added = new Set() // Pour éviter les doublons
+    uniqueList.forEach(cat => {
+      if (added.has(cat.id)) return // Déjà ajouté
+      if (cat.parentId && map[cat.parentId]) {
+        map[cat.parentId].children.push(map[cat.id])
+        added.add(cat.id)
+      } else {
+        roots.push(map[cat.id])
+        added.add(cat.id)
+      }
     })
+    
+    console.log('buildTree result:', roots.map(c => ({ id: c.id, name: c.name, children: c.children.map(ch => ({ id: ch.id, name: ch.name })) })))
+    
     const sortNode = arr => {
       arr.sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name))
       arr.forEach(n => sortNode(n.children))

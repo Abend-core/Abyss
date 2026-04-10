@@ -288,13 +288,6 @@ export function useHomePage() {
         total.value = expensesRes.value.total ?? 0
         hasMore.value = expensesRes.value.hasMore ?? false
         offset.value = expenses.value.length
-
-        while (hasMore.value) {
-          const page = await api(`/api/user/expenses?limit=${LIMIT}&offset=${offset.value}`)
-          expenses.value.push(...(page.data ?? []))
-          offset.value += page.data?.length ?? 0
-          hasMore.value = page.hasMore ?? false
-        }
       }
 
       if (userRes.status === 'fulfilled') {

@@ -7,6 +7,7 @@ const props = defineProps({
   total: { type: Number, required: true },
   filteredCount: { type: Number, required: true },
   hasActiveFilters: { type: Boolean, required: true },
+  hasMore: { type: Boolean, default: false },
   hasUncategorized: { type: Boolean, required: true },
   isWithoutCategoryActive: { type: Boolean, default: false },
 })
@@ -18,7 +19,19 @@ const emit = defineEmits(['open-filters', 'reset-filters', 'add-operation', 'tog
     <div class="home-page__hero-text">
       <BaseText as="h1" size="3xl" weight="bold">Accueil</BaseText>
       <BaseText as="p" color="secondary" size="sm">
-        {{ total > 0 ? `${filteredCount} / ${total} opération${total > 1 ? 's' : ''}` : 'Aucune opération' }}
+        <template v-if="total > 0">
+          <span v-if="hasActiveFilters">
+            {{ filteredCount }} résultat{{ filteredCount > 1 ? 's' : '' }}
+            <span v-if="hasMore"> chargés</span>
+            <span v-else> trouvés</span>
+          </span>
+          <span v-else>
+            {{ total }} opération{{ total > 1 ? 's' : '' }}
+          </span>
+        </template>
+        <template v-else>
+          Aucune opération
+        </template>
       </BaseText>
     </div>
 

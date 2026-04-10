@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import { useCategoriesPage } from '@/composables/useCategoriesPage.js'
 import BaseText from '@/components/atoms/BaseText.vue'
 import CategoryTree from '@/components/organisms/CategoryTree.vue'
@@ -6,6 +7,12 @@ import CategoriesForm from '@/components/pages/categories/CategoriesForm.vue'
 import CategoriesEditModal from '@/components/pages/categories/CategoriesEditModal.vue'
 
 const page = useCategoriesPage()
+
+// Computed properties pour exposer les valeurs des refs
+const newCategory = computed(() => page.newCategory.value)
+const categoryTree = computed(() => page.categoryTree.value)
+const editingCategory = computed(() => page.editingCategory.value)
+const editForm = computed(() => page.editForm.value)
 </script>
 
 <template>
@@ -20,14 +27,14 @@ const page = useCategoriesPage()
 
     <!-- ── Formulaire ──────────────────────────────── -->
     <CategoriesForm
-      :new-category="page.newCategory"
-      @update:new-category="page.newCategory = $event"
+      :new-category="newCategory"
+      @update:new-category="page.newCategory.value = $event"
       @add="page.handleAddCategory()"
     />
 
     <!-- ── Arbre ───────────────────────────────────── -->
     <CategoryTree
-      :tree="page.categoryTree"
+      :categories="categoryTree"
       @edit="page.openEdit"
       @delete="page.handleDeleteCategory"
       @move-up="page.handleMoveUp"
@@ -38,11 +45,12 @@ const page = useCategoriesPage()
 
     <!-- ── Modal d'édition ────────────────────────── -->
     <CategoriesEditModal
-      :editing-category="page.editingCategory"
-      :edit-form="page.editForm"
-      @update:editForm="page.editForm = $event"
+      :editing-category="editingCategory"
+      :edit-form="editForm"
+      @update:editForm="page.editForm.value = $event"
       @close="page.cancelEdit()"
       @save="page.handleSaveEdit()"
+      @delete="page.handleDeleteCategory(editingCategory.id)"
     />
   </div>
 </template>
@@ -67,5 +75,12 @@ const page = useCategoriesPage()
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+}
+
+/* Mobile - espace pour le bouton flottant */
+@media (max-width: 767px) {
+  .categories-page {
+    padding-bottom: calc(var(--space-5) + 4.5rem);
+  }
 }
 </style>

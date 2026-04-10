@@ -2,7 +2,7 @@
   <Transition name="slide-down">
     <div v-if="showForm" class="form-card">
       <div class="form-card__title">
-        <BaseText weight="semibold">Nouvelle opération</BaseText>
+        <BaseText weight="semibold">{{ isEditing ? 'Modifier l\'opération' : 'Nouvelle opération' }}</BaseText>
       </div>
       <form @submit.prevent="$emit('submit')" class="form-grid">
         <BaseInput
@@ -13,17 +13,22 @@
           class="form-col-span"
           @update:model-value="$emit('update:form', { ...form, title: $event })"
         />
-        <BaseStepper
-          :model-value="form.amount"
-          label="Montant"
-          required
-          placeholder="0,00"
-          :hint="`Montant minimal 1`"
-          :min="1"
-          :max="1000000"
-          :step="1"
-          @update:model-value="$emit('update:form', { ...form, amount: $event })"
-        />
+        <div class="form-group">
+          <label class="form-label">
+            Montant
+            <span class="form-label-required">*</span>
+          </label>
+          <BaseStepper
+            :model-value="form.amount"
+            required
+            placeholder="0,00"
+            :hint="`Montant minimal 1`"
+            :min="1"
+            :max="1000000"
+            :step="1"
+            @update:model-value="handleAmountUpdate($event)"
+          />
+        </div>
         <BaseInput
           :model-value="form.date"
           label="Date"
@@ -54,6 +59,13 @@
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
         </div>
+        <BaseInput
+          :model-value="form.description"
+          label="Description (optionnelle)"
+          placeholder="Notes supplémentaires"
+          class="form-col-span"
+          @update:model-value="$emit('update:form', { ...form, description: $event })"
+        />
         <div class="form-row form-col-span">
           <label class="checkbox-label">
             <input
@@ -63,7 +75,8 @@
             />
             <span>Permanente</span>
           </label>
-          <div v-if="form.isRecurring" class="form-group">
+          <div v-if="form.isRecurring" class="form-group-inline">
+            <label class="form-label">Rythme</label>
             <select
               :value="form.recurrence"
               class="form-select"
@@ -84,9 +97,9 @@
           class="form-col-span"
           :full="true"
           :loading="isSubmitting"
-          :disabled="!form.title.trim() || !form.amount"
+          :disabled="isSubmitDisabled"
         >
-          Ajouter l'opération
+          {{ isEditing ? 'Modifier l\'opération' : 'Ajouter l\'opération' }}
         </BaseButton>
       </form>
     </div>
@@ -94,19 +107,34 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import BaseButton from '@/components/atoms/BaseButton.vue'
 import BaseInput from '@/components/atoms/BaseInput.vue'
 import BaseStepper from '@/components/atoms/BaseStepper.vue'
 import BaseText from '@/components/atoms/BaseText.vue'
 
-defineProps({
+const props = defineProps({
   showForm: { type: Boolean, required: true },
   form: { type: Object, required: true },
   categories: { type: Array, required: true },
   isSubmitting: { type: Boolean, required: true },
+  isEditing: { type: Boolean, default: false },
 })
 
-defineEmits(['submit', 'update:form'])
+const emit = defineEmits(['submit', 'update:form'])
+
+const isSubmitDisabled = computed(() => {
+  const amount = String(props.form.amount || '').replace(',', '.')
+  const value = parseFloat(amount)
+  const hasValidTitle = props.form.title?.trim().length > 0
+  const hasValidAmount = !Number.isNaN(value) && value > 0
+
+  return !hasValidTitle || !hasValidAmount
+})
+
+function handleAmountUpdate(newAmount) {
+  emit('update:form', { ...props.form, amount: newAmount })
+}
 </script>
 
 <style scoped>
@@ -136,9 +164,20 @@ defineEmits(['submit', 'update:form'])
   flex-direction: column;
   gap: var(--space-2);
 }
+.form-group-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-left: var(--space-4);
+}
 .form-label {
   font-size: var(--text-sm);
   font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+}
+.form-label-required {
+  color: var(--color-danger);
+  margin-left: var(--space-1);
 }
 .form-row {
   display: flex;

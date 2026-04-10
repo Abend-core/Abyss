@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import { useSettingsPage } from '@/composables/useSettingsPage.js'
 import BaseText from '@/components/atoms/BaseText.vue'
 import SettingsCurrency from '@/components/pages/settings/SettingsCurrency.vue'
@@ -7,6 +8,16 @@ import SettingsDeleteAccount from '@/components/pages/settings/SettingsDeleteAcc
 import SettingsExportPasswordModal from '@/components/pages/settings/SettingsExportPasswordModal.vue'
 
 const page = useSettingsPage()
+
+// Computed properties to expose ref values
+const currency = computed(() => page.currency.value)
+const currencyOptions = computed(() => page.currencyOptions)
+const selectedFileName = computed(() => page.selectedFileName.value)
+const fileInput = computed(() => page.fileInput.value)
+const showDeleteModal = computed(() => page.showDeleteModal.value)
+const showExportPasswordModal = computed(() => page.showExportPasswordModal.value)
+const exportPassword = computed(() => page.exportPassword.value)
+const isExporting = computed(() => page.isExporting.value)
 </script>
 
 <template>
@@ -21,16 +32,16 @@ const page = useSettingsPage()
 
     <!-- ── Devise ──────────────────────────────────── -->
     <SettingsCurrency
-      :currency="page.currency"
-      :currency-options="page.currencyOptions"
-      @update:currency="page.currency = $event"
-      @save="page.saveCurrency()"
+      :currency="currency"
+      :currency-options="currencyOptions"
+      @update:currency="page.currency.value = $event"
+      @save="page.saveCurrency($event)"
     />
 
     <!-- ── Gestion des données ────────────────────── -->
     <SettingsDataManagement
-      :selected-file-name="page.selectedFileName"
-      :file-input="page.fileInput"
+      :selected-file-name="selectedFileName"
+      :file-input="fileInput"
       @export="page.exportData()"
       @select-import="page.selectImportFile()"
       @confirm-import="page.confirmImport()"
@@ -40,18 +51,18 @@ const page = useSettingsPage()
 
     <!-- ── Zone de danger ─────────────────────────── -->
     <SettingsDeleteAccount
-      :show-delete-modal="page.showDeleteModal"
-      @delete="page.showDeleteModal = true"
-      @close="page.showDeleteModal = false"
+      :show-delete-modal="showDeleteModal"
+      @delete="page.showDeleteModal.value = true"
+      @close="page.showDeleteModal.value = false"
       @confirm-delete="page.confirmDeleteAccount()"
     />
 
     <!-- ── Modal export mot de passe ──────────────── -->
     <SettingsExportPasswordModal
-      :show-export-password-modal="page.showExportPasswordModal"
-      :export-password="page.exportPassword"
-      :is-exporting="page.isExporting"
-      @update:exportPassword="page.exportPassword = $event"
+      :show-export-password-modal="showExportPasswordModal"
+      :export-password="exportPassword"
+      :is-exporting="isExporting"
+      @update:exportPassword="page.exportPassword.value = $event"
       @close="page.cancelExport()"
       @confirm="page.confirmExport()"
     />
@@ -66,6 +77,13 @@ const page = useSettingsPage()
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+}
+
+/* Mobile - espace pour le bouton flottant */
+@media (max-width: 767px) {
+  .settings-page {
+    padding-bottom: calc(var(--space-5) + 4.5rem);
+  }
 }
 
 .page-header {

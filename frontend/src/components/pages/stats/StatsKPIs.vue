@@ -1,9 +1,9 @@
 <template>
   <div class="stats-kpis">
     <div class="kpi-card">
-      <div class="kpi-card__label">Solde net</div>
-      <div class="kpi-card__value" :style="{ color: netBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }">
-        {{ netBalance >= 0 ? '+' : '' }}{{ netBalance.toFixed(2) }}
+      <div class="kpi-card__label">Total revenus</div>
+      <div class="kpi-card__value" style="color: var(--color-success)">
+        {{ totalCredits.toFixed(2) }}
       </div>
       <div class="kpi-card__unit">{{ currency }}</div>
     </div>
@@ -17,9 +17,9 @@
     </div>
 
     <div class="kpi-card">
-      <div class="kpi-card__label">Total revenus</div>
-      <div class="kpi-card__value" style="color: var(--color-success)">
-        {{ totalCredits.toFixed(2) }}
+      <div class="kpi-card__label">Solde net</div>
+      <div class="kpi-card__value" :style="{ color: netBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }">
+        {{ netBalance >= 0 ? '+' : '' }}{{ netBalance.toFixed(2) }}
       </div>
       <div class="kpi-card__unit">{{ currency }}</div>
     </div>

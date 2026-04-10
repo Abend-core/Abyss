@@ -12,7 +12,7 @@
           required
           @update:model-value="$emit('update:new-category', $event)"
         />
-        <BaseButton type="submit" :disabled="!newCategory.trim()">
+        <BaseButton type="submit" :disabled="!newCategory?.trim()">
           <BaseIcon name="plus" :size="14" />
           Ajouter
         </BaseButton>

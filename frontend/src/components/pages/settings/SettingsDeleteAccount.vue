@@ -1,6 +1,5 @@
 <template>
   <div class="settings-section">
-    <BaseText as="h3" size="lg" weight="semibold" class="section-title">Zone de danger</BaseText>
     <div class="settings-card danger">
       <div class="setting-row danger-row">
         <div>
@@ -86,12 +85,27 @@ defineEmits(['delete', 'close', 'confirm-delete'])
   border-bottom: 1px solid var(--color-border);
 }
 
+.setting-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .setting-row.danger-row {
   border-color: var(--color-danger);
 }
 
 .setting-row:last-child {
   border-bottom: none;
+}
+
+/* Mobile - empilement vertical */
+@media (max-width: 640px) {
+  .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
 }
 
 /* ── Modal ────────────────────────────────────────── */

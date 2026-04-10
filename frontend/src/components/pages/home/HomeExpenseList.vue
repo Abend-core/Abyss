@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch, nextTick } from 'vue'
 import HomeExpenseCard from '@/components/pages/home/HomeExpenseCard.vue'
 import BaseLoader from '@/components/atoms/BaseLoader.vue'
 import BaseText from '@/components/atoms/BaseText.vue'
@@ -25,11 +25,22 @@ function setupObserver() {
     if (entry.isIntersecting && props.hasMore) {
       emit('load-more')
     }
-  }, { threshold: 0.2 })
+  }, { root: null, rootMargin: '200px 0px', threshold: 0.1 })
   observer.observe(sentinel.value)
 }
 
-onMounted(setupObserver)
+onMounted(async () => {
+  await nextTick()
+  setupObserver()
+})
+
+watch(() => sentinel.value, async (value) => {
+  if (value) {
+    await nextTick()
+    setupObserver()
+  }
+})
+
 onBeforeUnmount(() => observer?.disconnect())
 </script>
 
