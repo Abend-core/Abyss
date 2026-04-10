@@ -12,13 +12,70 @@
  */
 
 import Fastify     from 'fastify'
+import type { FastifyInstance } from 'fastify'
 import cors        from '@fastify/cors'
 import helmet      from '@fastify/helmet'
 import jwt         from '@fastify/jwt'
 import swagger     from '@fastify/swagger'
 import swaggerUi   from '@fastify/swagger-ui'
+import { formatDate, getRecurrenceDatesUpTo } from './utils/recurrence.js'
 
-export async function buildApp(opts = {}) {
+async function createMissingRecurringOperations(fastify: any) {
+  const today = formatDate(new Date())
+
+  const rules = await fastify.prisma.recurrenceRule.findMany({
+    where: { startDate: { lte: new Date(today) } },
+  })
+
+  for (const rule of rules) {
+    const dueDates = getRecurrenceDatesUpTo(rule.startDate, rule.recurrence, today)
+    if (dueDates.length === 0) continue
+
+    const existingOperations = await fastify.prisma.operation.findMany({
+      where: {
+        recurrenceRuleId: rule.id,
+        date: { in: dueDates.map((date) => new Date(date)) },
+      },
+      select: { date: true },
+    })
+
+    const existingDates = new Set(existingOperations.map((operation: any) => formatDate(operation.date)))
+    const missingDates = dueDates.filter((date) => !existingDates.has(date))
+
+    for (const date of missingDates) {
+      await fastify.prisma.operation.create({
+        data: {
+          userId: rule.userId,
+          categoryId: rule.categoryId,
+          recurrenceRuleId: rule.id,
+          titleEncrypted: rule.titleEncrypted,
+          amountEncrypted: rule.amountEncrypted,
+          date: new Date(date),
+          type: rule.type,
+          isRecurring: true,
+          recurrence: rule.recurrence,
+          description: rule.description,
+        },
+      })
+    }
+  }
+}
+
+function startRecurringOperationScheduler(fastify: any) {
+  async function runTask() {
+    try {
+      await createMissingRecurringOperations(fastify)
+      fastify.log.info('Récurrence : vérification des règles terminée')
+    } catch (error) {
+      fastify.log.error(error, 'Erreur lors de la génération des opérations récurrentes')
+    }
+  }
+
+  runTask()
+  setInterval(runTask, 24 * 60 * 60 * 1000)
+}
+
+export async function buildApp(opts: { testing?: boolean; prisma?: any } = {}) {
   const { testing = false, prisma: injectedPrisma } = opts
 
   // ── Instance Fastify ─────────────────────────────────────
@@ -82,8 +139,10 @@ export async function buildApp(opts = {}) {
   fastify.register(import('./routes/user.js'))
 
   if (!testing) {
+    startRecurringOperationScheduler(fastify)
+
     // Root HTML page (uniquement en production — inutile dans les tests)
-    fastify.get('/', { schema: { hide: true } }, async (req, reply) => {
+    fastify.get('/', { schema: { hide: true } }, async (req: any, reply: any) => {
       const uptime     = process.uptime()
       const started    = new Date(Date.now() - uptime * 1000)
       const startedStr = started.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })
@@ -128,23 +187,25 @@ export async function buildApp(opts = {}) {
         },
       },
     },
-  }, async (req, reply) => {
+  }, async (req: any, reply: any) => {
     try {
       await prismaInstance.$queryRaw`SELECT 1`
       return { status: 'connected', schema: 'dbo' }
-    } catch (err) {
-      return reply.code(503).send({ status: 'error', message: err.message })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      return reply.code(503).send({ status: 'error', message })
     }
   })
 
   // ── Error handler ────────────────────────────────────────
-  fastify.setErrorHandler((error, req, reply) => {
+  fastify.setErrorHandler((error: any, req, reply) => {
     if (!testing) fastify.log.error(error)
-    reply.code(error.statusCode ?? 500).send({
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    reply.code(error?.statusCode ?? 500).send({
       error: process.env.NODE_ENV === 'production'
         ? 'Internal server error'
-        : (error.message ?? 'Internal server error'),
-      code: error.code ?? 'INTERNAL_ERROR',
+        : message,
+      code: error?.code ?? 'INTERNAL_ERROR',
     })
   })
 
@@ -152,7 +213,7 @@ export async function buildApp(opts = {}) {
 }
 
 // ── Template HTML de la page racine ─────────────────────────
-function rootHtml({ startedStr, started }) {
+function rootHtml({ startedStr, started, uptime }: { startedStr: string, started: Date, uptime: number }) {
   return `<!DOCTYPE html>
 <html lang="fr">
 <head>

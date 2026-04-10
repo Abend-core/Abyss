@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "Fastify API for Abyss — Prisma ORM",
   "type": "module",
-  "main": "src/server.js",
+  "main": "src/server.ts",
   "scripts": {
-    "dev": "npx prisma generate && node --watch src/server.js",
-    "start": "node src/server.js",
+    "dev": "npx prisma generate && tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -34,7 +34,11 @@
     "pino-pretty": "^11.0.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.14.0",
     "prisma": "^5.10.2",
+    "tsx": "^4.13.0",
+    "typescript": "^5.5.3",
     "vitest": "^2.1.8"
   }
 }

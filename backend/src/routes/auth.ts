@@ -18,7 +18,7 @@ function generateSalt() {
 function generateKeyFragment() {
   return crypto.randomBytes(32).toString('hex')
 }
-export default async function authRoutes(fastify) {
+export default async function authRoutes(fastify: any) {
   // ── POST /api/auth/register ─────────────────────────────
   fastify.post('/api/auth/register', {
     schema: {

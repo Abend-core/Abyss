@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
-import { buildApp } from '../src/app.js'
+import { buildApp } from '../src/app.ts'
 
 describe('GET /health', () => {
   let app

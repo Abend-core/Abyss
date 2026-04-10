@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { buildApp } from '../src/app.js'
-import { encryptValue } from '../src/utils/crypto.js'
+import { buildApp } from '../src/app.ts'
+import { encryptValue } from '../src/utils/crypto.ts'
 
 beforeAll(() => {
   process.env.MASTER_SECRET = 'b'.repeat(64)

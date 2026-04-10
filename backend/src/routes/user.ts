@@ -4,7 +4,7 @@ import { encryptValue, decryptValue } from '../utils/crypto.js'
 const SUPPORTED_CURRENCIES = ['EUR', 'USD', 'GBP', 'JPY', 'CHF', 'AUD']
 const DEFAULT_CURRENCY = 'EUR'
 
-export default async function userRoutes(fastify) {
+export default async function userRoutes(fastify: any) {
   async function requireAuth(req, reply) {
     try {
       await req.jwtVerify()
@@ -32,9 +32,14 @@ export default async function userRoutes(fastify) {
     const userId = req.user.userId
     const params = await fastify.prisma.userParam.findMany({ where: { userId } })
 
-    const settings = {}
+    const settings: Record<string, string> = {}
     params.forEach((param) => {
-      settings[param.key] = decryptValue(param.valueEncrypted, 'user-settings')
+      try {
+        settings[param.key] = decryptValue(param.valueEncrypted, 'user-settings')
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        fastify.log.warn({ userId, key: param.key, error: message }, 'Failed to decrypt user setting')
+      }
     })
 
     return { id: userId, settings }
@@ -262,7 +267,7 @@ export default async function userRoutes(fastify) {
     const userId = req.user.userId
     const categories = await fastify.prisma.category.findMany({
       where: { userId },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { operations: true } } },
       orderBy: [
         { position: 'asc' },
         { createdAt: 'asc' },
@@ -275,7 +280,7 @@ export default async function userRoutes(fastify) {
       color:     category.color || null,
       parentId:  category.parentId,
       position:  category.position,
-      itemCount: category._count.items,
+      itemCount: category._count.operations,
     }))
   })
 
@@ -320,7 +325,7 @@ export default async function userRoutes(fastify) {
         parentId: req.body.parentId ?? null,
         position: req.body.position ?? null,
         nameEncrypted: encryptValue(name, 'category-name'),
-        color: req.body.color ?? null,
+        color: req.body.color ?? '#6366f1', // Couleur par défaut si non spécifiée
       },
     })
 
@@ -394,7 +399,7 @@ export default async function userRoutes(fastify) {
       }
     }
 
-    const updateData = {}
+    const updateData: Record<string, any> = {}
     if (name !== undefined) updateData.nameEncrypted = encryptValue(name.trim(), 'category-name')
     if (color !== undefined) updateData.color = color ?? null
     if (parentId !== undefined) updateData.parentId = parentId
@@ -469,7 +474,7 @@ export default async function userRoutes(fastify) {
 
     // Récupérer les données
     const categories = await fastify.prisma.category.findMany({ where: { userId }, orderBy: { createdAt: 'asc' } })
-    const items = await fastify.prisma.item.findMany({ where: { userId }, include: { category: true }, orderBy: { createdAt: 'asc' } })
+    const items = await fastify.prisma.operation.findMany({ where: { userId }, include: { category: true }, orderBy: { createdAt: 'asc' } })
     const params = await fastify.prisma.userParam.findMany({ where: { userId } })
 
     // Formatter les paramètres
@@ -490,8 +495,8 @@ export default async function userRoutes(fastify) {
     // Formatter les items avec catégories
     const formattedItems = items.map((item) => ({
       id: item.id,
-      title: item.title,
-      amount: parseFloat(item.amount),
+      title: decryptValue(item.titleEncrypted, 'operation-title'),
+      amount: parseFloat(decryptValue(item.amountEncrypted, 'operation-amount')),
       date: item.date.toISOString().split('T')[0],
       type: item.type || 'expense',
       isRecurring: item.isRecurring,
@@ -560,8 +565,8 @@ export default async function userRoutes(fastify) {
     const categoriesInput = Array.isArray(req.body.categories) ? req.body.categories : []
     const itemsInput = Array.isArray(req.body.items) ? req.body.items : []
 
-    const createdCategories = []
-    const categoryMap = new Map()
+    const createdCategories: Array<{ id: string, name: string }> = []
+    const categoryMap = new Map<string, string>()
 
     for (const category of categoriesInput) {
       const name = category.name?.trim()
@@ -581,9 +586,14 @@ export default async function userRoutes(fastify) {
     for (const item of itemsInput) {
       const title = item.title?.trim()
       if (!title) continue
-      const payload = {
+      const payload: Record<string, any> = {
         userId,
-        title,
+        titleEncrypted: encryptValue(item.title?.trim(), 'operation-title'),
+        amountEncrypted: encryptValue((item.amount ?? 0).toString(), 'operation-amount'),
+        date: item.date ? new Date(item.date) : new Date(),
+        type: item.type || 'expense',
+        isRecurring: item.isRecurring || false,
+        recurrence: item.recurrence || null,
         description: item.description?.trim() ?? null,
       }
 
@@ -592,7 +602,7 @@ export default async function userRoutes(fastify) {
         if (categoryId) payload.categoryId = categoryId
       }
 
-      await fastify.prisma.item.create({ data: payload })
+      await fastify.prisma.operation.create({ data: payload })
       createdItems += 1
     }
 
@@ -612,8 +622,8 @@ export default async function userRoutes(fastify) {
   function formatExpense(expense) {
     return {
       id: expense.id,
-      title: expense.title,
-      amount: parseFloat(expense.amount),
+      title: decryptValue(expense.titleEncrypted, 'operation-title'),
+      amount: parseFloat(decryptValue(expense.amountEncrypted, 'operation-amount')),
       type: expense.type || 'expense',
       date: expense.date.toISOString().split('T')[0],
       isRecurring: expense.isRecurring,
@@ -627,6 +637,39 @@ export default async function userRoutes(fastify) {
         parentId: expense.category.parentId || null,
       } : null,
     }
+  }
+
+  async function createOperation(data) {
+    return fastify.prisma.operation.create({
+      data: {
+        userId: data.userId,
+        titleEncrypted: encryptValue(data.title.trim(), 'operation-title'),
+        amountEncrypted: encryptValue(data.amount.toString(), 'operation-amount'),
+        date: new Date(data.date),
+        type: data.type || 'expense',
+        isRecurring: data.isRecurring || false,
+        recurrence: data.recurrence ?? null,
+        categoryId: data.categoryId || null,
+        description: data.description?.trim() || null,
+        recurrenceRuleId: data.recurrenceRuleId || null,
+      },
+      include: { category: { select: { id: true, nameEncrypted: true, color: true, parentId: true } } },
+    })
+  }
+
+  async function createRecurrenceRule(data) {
+    return fastify.prisma.recurrenceRule.create({
+      data: {
+        userId: data.userId,
+        titleEncrypted: encryptValue(data.title.trim(), 'operation-title'),
+        amountEncrypted: encryptValue(data.amount.toString(), 'operation-amount'),
+        startDate: new Date(data.date),
+        recurrence: data.recurrence,
+        type: data.type || 'expense',
+        categoryId: data.categoryId || null,
+        description: data.description?.trim() || null,
+      },
+    })
   }
 
   // ── GET /api/user/expenses/recent ───────────────────────
@@ -646,7 +689,7 @@ export default async function userRoutes(fastify) {
     const userId = req.user.userId
     const limit = req.query.limit ?? 3
 
-    const expenses = await fastify.prisma.item.findMany({
+    const expenses = await fastify.prisma.operation.findMany({
       where: { userId },
       include: { category: { select: { id: true, nameEncrypted: true, color: true, parentId: true } } },
       orderBy: { date: 'desc' },
@@ -692,14 +735,14 @@ export default async function userRoutes(fastify) {
     const offset = req.query.offset ?? 0
 
     const [expenses, total] = await Promise.all([
-      fastify.prisma.item.findMany({
+      fastify.prisma.operation.findMany({
         where: { userId },
         include: { category: { select: { id: true, nameEncrypted: true, color: true, parentId: true } } },
         orderBy: { date: 'desc' },
         take: limit,
         skip: offset,
       }),
-      fastify.prisma.item.count({ where: { userId } }),
+      fastify.prisma.operation.count({ where: { userId } }),
     ])
 
     return {
@@ -724,7 +767,7 @@ export default async function userRoutes(fastify) {
           type: { type: 'string', enum: ['expense', 'credit'], default: 'expense' },
           categoryId: { type: 'string', format: 'uuid' },
           isRecurring: { type: 'boolean' },
-          recurrence: { type: 'string', enum: ['daily', 'weekly', 'biweekly', 'monthly', 'bimonthly', 'yearly'] },
+          recurrence: { type: ['string', 'null'], enum: ['daily', 'weekly', 'biweekly', 'monthly', 'bimonthly', 'yearly'] },
           description: { type: 'string', maxLength: 1000 },
         },
       },
@@ -732,7 +775,12 @@ export default async function userRoutes(fastify) {
     preHandler: requireAuth,
   }, async (req, reply) => {
     const userId = req.user.userId
-    const { title, amount, date, type, categoryId, isRecurring, recurrence, description } = req.body
+    let { title, amount, date, type, categoryId, isRecurring, recurrence, description } = req.body
+
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      return reply.code(400).send({ error: 'Le titre ne peut pas être vide.', code: 'EMPTY_TITLE' })
+    }
 
     if (categoryId) {
       const category = await fastify.prisma.category.findFirst({ where: { id: categoryId, userId } })
@@ -741,20 +789,44 @@ export default async function userRoutes(fastify) {
       }
     }
 
-    const expense = await fastify.prisma.item.create({
-      data: {
+    let expense
+    if (isRecurring && recurrence) {
+      const recurrenceRule = await createRecurrenceRule({
         userId,
-        title: title.trim(),
+        title: trimmedTitle,
         amount,
-        date: new Date(date),
-        type: type || 'expense',
-        isRecurring: isRecurring || false,
-        recurrence: isRecurring ? recurrence : null,
-        categoryId: categoryId || null,
-        description: description?.trim() || null,
-      },
-      include: { category: { select: { id: true, nameEncrypted: true, colorEncrypted: true } } },
-    })
+        date,
+        type,
+        categoryId,
+        recurrence,
+        description,
+      })
+
+      expense = await createOperation({
+        userId,
+        title: trimmedTitle,
+        amount,
+        date,
+        type,
+        isRecurring: true,
+        recurrence,
+        categoryId,
+        description,
+        recurrenceRuleId: recurrenceRule.id,
+      })
+    } else {
+      expense = await createOperation({
+        userId,
+        title: trimmedTitle,
+        amount,
+        date,
+        type,
+        isRecurring: false,
+        recurrence: null,
+        categoryId,
+        description,
+      })
+    }
 
     return reply.code(201).send(formatExpense(expense))
   })
@@ -789,10 +861,17 @@ export default async function userRoutes(fastify) {
     const { id } = req.params
     const { title, amount, date, type, categoryId, isRecurring, recurrence, description } = req.body
 
-    const expense = await fastify.prisma.item.findFirst({ where: { id, userId } })
+    const expense = await fastify.prisma.operation.findFirst({ where: { id, userId } })
 
     if (!expense) {
       return reply.code(404).send({ error: 'Dépense non trouvée.', code: 'EXPENSE_NOT_FOUND' })
+    }
+
+    if (title !== undefined) {
+      const trimmedTitle = title.trim()
+      if (!trimmedTitle) {
+        return reply.code(400).send({ error: 'Le titre ne peut pas être vide.', code: 'EMPTY_TITLE' })
+      }
     }
 
     if (categoryId) {
@@ -802,20 +881,38 @@ export default async function userRoutes(fastify) {
       }
     }
 
-    const updated = await fastify.prisma.item.update({
+    const updated = await fastify.prisma.operation.update({
       where: { id },
       data: {
-        title: title?.trim() ?? expense.title,
-        amount: amount ?? expense.amount,
+        titleEncrypted: title !== undefined ? encryptValue(title.trim(), 'operation-title') : expense.titleEncrypted,
+        amountEncrypted: amount !== undefined ? encryptValue(amount.toString(), 'operation-amount') : expense.amountEncrypted,
         date: date ? new Date(date) : expense.date,
         type: type ?? expense.type,
         isRecurring: isRecurring ?? expense.isRecurring,
-        recurrence: isRecurring ? (recurrence ?? expense.recurrence) : null,
+        recurrence: isRecurring ? (recurrence ?? expense.recurrence) : (recurrence !== undefined ? null : expense.recurrence),
         categoryId: categoryId ?? expense.categoryId,
         description: description?.trim() ?? expense.description,
       },
-      include: { category: { select: { id: true, nameEncrypted: true, colorEncrypted: true } } },
+      include: { category: { select: { id: true, nameEncrypted: true, color: true, parentId: true } } },
     })
+
+    if (expense.recurrenceRuleId) {
+      const ruleData: Record<string, any> = {}
+      if (title !== undefined) ruleData.titleEncrypted = encryptValue(title.trim(), 'operation-title')
+      if (amount !== undefined) ruleData.amountEncrypted = encryptValue(amount.toString(), 'operation-amount')
+      if (date !== undefined) ruleData.startDate = new Date(date)
+      if (recurrence !== undefined) ruleData.recurrence = recurrence
+      if (type !== undefined) ruleData.type = type
+      if (categoryId !== undefined) ruleData.categoryId = categoryId || null
+      if (description !== undefined) ruleData.description = description?.trim() ?? null
+
+      if (Object.keys(ruleData).length > 0) {
+        await fastify.prisma.recurrenceRule.update({
+          where: { id: expense.recurrenceRuleId },
+          data: ruleData,
+        })
+      }
+    }
 
     return reply.code(200).send(formatExpense(updated))
   })
@@ -836,13 +933,20 @@ export default async function userRoutes(fastify) {
     const userId = req.user.userId
     const { id } = req.params
 
-    const expense = await fastify.prisma.item.findFirst({ where: { id, userId } })
+    const expense = await fastify.prisma.operation.findFirst({ where: { id, userId } })
 
     if (!expense) {
       return reply.code(404).send({ error: 'Dépense non trouvée.', code: 'EXPENSE_NOT_FOUND' })
     }
 
-    await fastify.prisma.item.delete({ where: { id } })
+    if (expense.recurrenceRuleId) {
+      const recurrenceRule = await fastify.prisma.recurrenceRule.findUnique({ where: { id: expense.recurrenceRuleId } })
+      if (recurrenceRule && expense.date.toISOString().split('T')[0] === recurrenceRule.startDate.toISOString().split('T')[0]) {
+        await fastify.prisma.recurrenceRule.delete({ where: { id: recurrenceRule.id } })
+      }
+    }
+
+    await fastify.prisma.operation.delete({ where: { id } })
 
     return reply.code(200).send({ success: true })
   })

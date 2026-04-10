@@ -29,10 +29,10 @@ function getMasterSecret() {
  * @param {string} usage - identifiant de l'usage ex: 'email-encryption'
  * @returns {Buffer} 32 bytes
  */
-function deriveKey(usage) {
+function deriveKey(usage: string) {
   return crypto.scryptSync(getMasterSecret(), `abyss:${usage}`, 32)
 }
-function encryptSecret(value, usage) {
+function encryptSecret(value: string, usage: string) {
   const key = deriveKey(usage)
   const iv  = crypto.randomBytes(12)
 
@@ -44,7 +44,7 @@ function encryptSecret(value, usage) {
   return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`
 }
 
-function decryptSecret(encryptedValue, usage) {
+function decryptSecret(encryptedValue: string, usage: string) {
   const parts = encryptedValue.split(':')
   if (parts.length !== 3) throw new Error('Invalid encrypted value format')
 
@@ -71,7 +71,7 @@ function decryptSecret(encryptedValue, usage) {
  * @param {string} email - email en clair (sera lowercased/trimmed)
  * @returns {string} 64 hex chars
  */
-export function hashEmail(email) {
+export function hashEmail(email: string) {
   return crypto
     .createHmac('sha256', getMasterSecret())
     .update(email.toLowerCase().trim())
@@ -88,15 +88,15 @@ export function hashEmail(email) {
  * @param {string} email - email en clair
  * @returns {string}
  */
-export function encryptValue(value, usage = 'user-settings') {
+export function encryptValue(value: string, usage = 'user-settings') {
   return encryptSecret(value, usage)
 }
 
-export function decryptValue(encryptedValue, usage = 'user-settings') {
+export function decryptValue(encryptedValue: string, usage = 'user-settings') {
   return decryptSecret(encryptedValue, usage)
 }
 
-export function encryptEmail(email) {
+export function encryptEmail(email: string) {
   return encryptValue(email.toLowerCase().trim(), 'email-encryption')
 }
 
@@ -107,6 +107,6 @@ export function encryptEmail(email) {
  * @param {string} encryptedEmail - format "<iv_hex>:<authTag_hex>:<ciphertext_hex>"
  * @returns {string} email en clair
  */
-export function decryptEmail(encryptedEmail) {
+export function decryptEmail(encryptedEmail: string) {
   return decryptValue(encryptedEmail, 'email-encryption')
 }

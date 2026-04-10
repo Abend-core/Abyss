@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
-import { buildApp } from '../src/app.js'
+import { buildApp } from '../src/app.ts'
 import bcrypt from 'bcryptjs'
-import { encryptValue } from '../src/utils/crypto.js'
+import { encryptValue } from '../src/utils/crypto.ts'
 
 beforeAll(() => {
   process.env.MASTER_SECRET = 'b'.repeat(64)
@@ -119,7 +119,7 @@ describe('User endpoints', () => {
     const pwd = await bcrypt.hash('test', 4)
     prisma.user.findUnique.mockResolvedValue({ passwordHash: pwd })
     prisma.category.findMany.mockResolvedValue([])
-    prisma.item.findMany.mockResolvedValue([])
+    prisma.operation.findMany.mockResolvedValue([])
     prisma.userParam.findMany.mockResolvedValue([])
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
@@ -146,7 +146,7 @@ describe('User endpoints', () => {
 
   it('POST /api/account/import — 200', async () => {
     prisma.category.create.mockResolvedValue({ id: 'cat1' })
-    prisma.item.create.mockResolvedValue({ id: 'item1' })
+    prisma.operation.create.mockResolvedValue({ id: 'item1' })
     const token = app.jwt.sign({ userId: 'user123' })
     const res = await app.inject({
       method: 'POST',

@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
-import { buildApp } from '../src/app.js'
-import { hashEmail, encryptEmail } from '../src/utils/crypto.js'
+import { buildApp } from '../src/app.ts'
+import { hashEmail, encryptEmail } from '../src/utils/crypto.ts'
 
 // ── MASTER_SECRET requis par les utils crypto ─────────────────
 beforeAll(() => {
