@@ -7,11 +7,11 @@ const router = useRouter()
 const route = useRoute()
 
 const ROUTES = [
-  { to: '/stats',      icon: 'chart',    label: 'Stats'      },
-  { to: '/operations', icon: 'database', label: 'Opérations' },
-  { to: '/',           icon: 'home',     label: 'Accueil'    },
-  { to: '/categories', icon: 'database', label: 'Catégories' },
-  { to: '/settings',   icon: 'settings', label: 'Compte'     },
+  { to: '/stats',      icon: 'chart',           label: 'Stats'      },
+  { to: '/operations', icon: 'wallet',          label: 'Opérations' },
+  { to: '/',           icon: 'home',            label: 'Accueil'    },
+  { to: '/categories', icon: 'database',        label: 'Catégories' },
+  { to: '/settings',   iconClass: 'ri-settings-3-fill', label: 'Compte'     },
 ]
 
 function goToOperations() {
@@ -27,6 +27,7 @@ function goToOperations() {
         :key="route.to"
         :to="route.to"
         :icon="route.icon"
+        :icon-class="route.iconClass"
         :label="route.label"
       />
     </nav>

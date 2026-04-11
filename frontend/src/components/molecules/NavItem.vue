@@ -6,7 +6,8 @@ import BaseText     from '@/components/atoms/BaseText.vue'
 
 const props = defineProps({
   to:    { type: String, required: true },
-  icon:  { type: String, required: true },
+  icon:  { type: String, default: '' },
+  iconClass: { type: String, default: '' },
   label: { type: String, required: true },
 })
 
@@ -15,7 +16,8 @@ const { isActive } = useLink({ to: computed(() => props.to) })
 
 <template>
   <RouterLink :to="to" class="nav-item" :class="{ 'nav-item--active': isActive }">
-    <BaseIcon :name="icon" :size="20" />
+    <BaseIcon v-if="icon" :name="icon" :size="20" />
+    <i v-else-if="iconClass" :class="iconClass"></i>
     <BaseText size="xs" weight="medium">{{ label }}</BaseText>
   </RouterLink>
 </template>
@@ -40,5 +42,10 @@ const { isActive } = useLink({ to: computed(() => props.to) })
 .nav-item--active {
   color: var(--color-primary);
   background: var(--color-primary-subtle);
+}
+
+.nav-item i {
+  font-size: 20px;
+  line-height: 1;
 }
 </style>
