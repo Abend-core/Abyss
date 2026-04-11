@@ -39,8 +39,9 @@ const editForm = computed(() => page.editForm.value)
       @delete="page.handleDeleteCategory"
       @move-up="page.handleMoveUp"
       @move-down="page.handleMoveDown"
-      @promote="page.handlePromote"
-      @demote="page.handleDemote"
+      @indent="page.handleDemote"
+      @dedent="page.handlePromote"
+      @nest="page.handleNest"
     />
 
     <!-- ── Modal d'édition ────────────────────────── -->

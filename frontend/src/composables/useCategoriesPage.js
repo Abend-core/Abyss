@@ -160,6 +160,17 @@ export function useCategoriesPage() {
     }
   }
 
+  async function handleNest({ id, parentId }) {
+    const category = categories.value.find(c => c.id === id)
+    if (!category) return
+    try {
+      await apiMove(category.id, parentId, 0)
+      updateLocalCategory(category.id, { parentId })
+    } catch {
+      appStore.notify({ type: 'error', message: 'Impossible de déplacer.' })
+    }
+  }
+
   // ── Add new category ──────────────────────────────
   async function handleAddCategory() {
     if (!newCategory.value.trim()) return
