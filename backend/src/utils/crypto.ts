@@ -9,7 +9,7 @@
  * Le HMAC permet le lookup sans exposer l'email en clair en base.
  */
 
-import crypto from 'node:crypto'
+import * as crypto from 'node:crypto'
 
 /**
  * Retourne le MASTER_SECRET depuis les variables d'environnement.
@@ -29,9 +29,18 @@ function getMasterSecret() {
  * @param {string} usage - identifiant de l'usage ex: 'email-encryption'
  * @returns {Buffer} 32 bytes
  */
+const keyCache = new Map<string, Buffer>()
+
 function deriveKey(usage: string) {
-  return crypto.scryptSync(getMasterSecret(), `abyss:${usage}`, 32)
+  if (keyCache.has(usage)) {
+    return keyCache.get(usage) as Buffer
+  }
+
+  const key = crypto.scryptSync(getMasterSecret(), `abyss:${usage}`, 32)
+  keyCache.set(usage, key)
+  return key
 }
+
 function encryptSecret(value: string, usage: string) {
   const key = deriveKey(usage)
   const iv  = crypto.randomBytes(12)

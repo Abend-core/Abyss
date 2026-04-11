@@ -89,7 +89,7 @@ model Operation {
   date             DateTime        @db.Date
   isRecurring      Boolean         @default(false) @map("is_recurring")
   recurrence       String?         @db.VarChar(50)  // 'daily', 'weekly', 'monthly', 'yearly'
-  description      String?         @db.Text
+  description      String?        @db.Text
   type             String          @db.VarChar(20) @default("expense")
   createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz()
@@ -99,6 +99,7 @@ model Operation {
   recurrenceRule   RecurrenceRule? @relation(fields: [recurrenceRuleId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([userId, date])
   @@index([categoryId])
   @@index([recurrenceRuleId])
   @@map("operations")
