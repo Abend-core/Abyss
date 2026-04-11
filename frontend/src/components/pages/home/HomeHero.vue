@@ -38,7 +38,7 @@ const emit = defineEmits(['open-filters', 'reset-filters', 'add-operation', 'tog
     <div class="home-page__actions">
       <div class="home-page__filter-controls">
         <button @click="$emit('open-filters')" class="btn-filter-icon" title="Filtrer">
-          <BaseIcon name="settings" :size="20" />
+          <BaseIcon name="filter" :size="20" />
         </button>
         <button
           v-if="hasUncategorized"
