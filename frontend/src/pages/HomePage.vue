@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import HomeHero from '@/components/pages/home/HomeHero.vue'
 import HomeFiltersModal from '@/components/pages/home/HomeFiltersModal.vue'
 import HomeExpenseList from '@/components/pages/home/HomeExpenseList.vue'
-import HomeExpenseEditModal from '@/components/pages/home/HomeExpenseEditModal.vue'
+import ExpenseDetailModal from '@/components/pages/expenses/ExpenseDetailModal.vue'
 import HomeDeleteConfirmation from '@/components/pages/home/HomeDeleteConfirmation.vue'
 import { useHomePage } from '@/composables/useHomePage.js'
 
@@ -20,8 +20,8 @@ const currency = computed(() => page.currency.value)
 const isLoading = computed(() => page.isLoading.value)
 const isLoadingMore = computed(() => page.isLoadingMore.value)
 const hasMore = computed(() => page.hasMore.value)
-const editingExpense = computed(() => page.editingExpense.value)
-const isSubmitting = computed(() => page.isSubmitting.value)
+const selected = computed(() => page.selected.value)
+const pendingDeleteExpense = computed(() => page.pendingDeleteExpense.value)
 const isDeleting = computed(() => page.isDeleting.value)
 const showDeleteConfirmation = computed(() => page.showDeleteConfirmation.value)
 </script>
@@ -60,25 +60,27 @@ const showDeleteConfirmation = computed(() => page.showDeleteConfirmation.value)
       :hasMore="hasMore"
       :total="total"
       :limit="page.LIMIT"
-      @select-expense="page.openEditModal"
+      @select-expense="page.openDetail"
       @load-more="page.loadMore"
     />
 
-    <HomeExpenseEditModal
-      :show="editingExpense !== null"
-      :editForm="page.editForm"
+    <ExpenseDetailModal
+      :selected="selected"
+      :currency="currency"
       :categories="categories"
-      :isSubmitting="isSubmitting"
-      :isDeleting="isDeleting"
-      @close="page.closeEditModal"
-      @update:editForm="page.setEditForm"
-      @delete="page.deleteExpense"
+      :is-deleting="isDeleting"
+      :format-date="page.formatDate"
+      :get-operation-color="page.getOperationColor"
+      :get-category-color="page.getCategoryColor"
+      :get-category-path="page.getCategoryPath"
+      @close="page.closeDetail()"
       @save="page.updateExpense"
+      @delete="page.requestDeleteExpense"
     />
 
     <HomeDeleteConfirmation
-      :show="showDeleteConfirmation && editingExpense !== null"
-      :expenseTitle="editingExpense?.title || ''"
+      :show="showDeleteConfirmation"
+      :expenseTitle="pendingDeleteExpense?.title || ''"
       :isDeleting="isDeleting"
       @close="page.closeDeleteConfirmation"
       @confirm="page.confirmDelete"

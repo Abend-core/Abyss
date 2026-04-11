@@ -60,17 +60,8 @@ export function useHomePage() {
     withoutCategory: false,
   })
 
-  const editingExpense = ref(null)
-  const editForm = reactive({
-    title: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    type: 'expense',
-    categoryId: '',
-    isRecurring: false,
-    recurrence: '',
-  })
-
+  const selected = ref(null)
+  const pendingDeleteExpense = ref(null)
   const isSubmitting = ref(false)
   const isDeleting = ref(false)
   const showFiltersModal = ref(false)
@@ -154,6 +145,28 @@ export function useHomePage() {
     return parent ? [parent, category] : [category]
   }
 
+  function getCategoryPath(cat) {
+    if (!cat) return ''
+    if (!cat.parentId) return cat.name
+    const parent = categories.value.find(c => c.id === cat.parentId)
+    return parent ? `${parent.name} > ${cat.name}` : cat.name
+  }
+
+  function getCategoryColor(expense) {
+    if (!expense?.category) return 'var(--color-warning)'
+    return expense.category.color || 'var(--color-warning)'
+  }
+
+  function getCategoryTagStyle(cat) {
+    if (!cat) return {}
+    const color = cat.color || 'var(--color-warning)'
+    return {
+      backgroundColor: cat.color ? `${cat.color}20` : 'var(--color-warning-subtle)',
+      borderColor: cat.color || 'transparent',
+      color,
+    }
+  }
+
   function categoryMatchesFilter(expCategory, filterId) {
     if (!filterId) return true
     if (!expCategory) return false
@@ -178,40 +191,21 @@ export function useHomePage() {
     return expense.type === 'credit' ? 'var(--color-success)' : 'var(--color-danger)'
   }
 
-  function openEditModal(expense) {
-    editingExpense.value = expense
-    Object.assign(editForm, {
-      title: expense.title,
-      amount: expense.amount.toString(),
-      date: expense.date,
-      type: expense.type || 'expense',
-      categoryId: expense.category?.id ?? '',
-      isRecurring: expense.isRecurring,
-      recurrence: normalizeRecurrence(expense.recurrence),
-    })
+  function openDetail(expense) {
+    selected.value = expense
   }
 
-  function closeEditModal() {
-    editingExpense.value = null
-    Object.assign(editForm, {
-      title: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0],
-      type: 'expense',
-      categoryId: '',
-      isRecurring: false,
-      recurrence: '',
-    })
+  function closeDetail() {
+    selected.value = null
   }
 
-  async function updateExpense() {
-    if (!editingExpense.value) return
-    if (!editForm.title.trim()) {
+  async function updateExpense(updatedExpense) {
+    if (!updatedExpense) return
+    const amount = parseFloat(updatedExpense.amount)
+    if (!updatedExpense.title?.trim()) {
       appStore.notify({ type: 'error', message: 'Le nom est requis' })
       return
     }
-
-    const amount = parseFloat(editForm.amount)
     if (Number.isNaN(amount) || amount <= 0) {
       appStore.notify({ type: 'error', message: 'Montant invalide' })
       return
@@ -220,22 +214,21 @@ export function useHomePage() {
     isSubmitting.value = true
     try {
       const payload = {
-        title: editForm.title.trim(),
+        title: updatedExpense.title.trim(),
         amount,
-        date: editForm.date,
-        type: editForm.type,
-        categoryId: editForm.categoryId || undefined,
-        isRecurring: editForm.isRecurring,
-        recurrence: editForm.isRecurring && editForm.recurrence ? editForm.recurrence : undefined,
+        date: updatedExpense.date,
+        type: updatedExpense.type,
+        categoryId: updatedExpense.categoryId || undefined,
+        description: updatedExpense.description?.trim() || undefined,
       }
-      const updated = await api(`/api/user/expenses/${editingExpense.value.id}`, {
+      const updated = await api(`/api/user/expenses/${updatedExpense.id}`, {
         method: 'PUT',
         body: payload,
       })
-      const idx = expenses.value.findIndex(e => e.id === editingExpense.value.id)
+      const idx = expenses.value.findIndex(e => e.id === updatedExpense.id)
       if (idx >= 0) expenses.value[idx] = updated
+      selected.value = updated
       appStore.notify({ type: 'success', message: 'Opération mise à jour' })
-      closeEditModal()
     } catch (e) {
       appStore.notify({ type: 'error', message: e.message || 'Erreur lors de la mise à jour' })
     } finally {
@@ -243,22 +236,24 @@ export function useHomePage() {
     }
   }
 
-  function deleteExpense() {
-    if (!editingExpense.value) return
+  function requestDeleteExpense(expense) {
+    pendingDeleteExpense.value = expense
     showDeleteConfirmation.value = true
   }
 
   async function confirmDelete() {
-    if (!editingExpense.value) return
+    const expense = pendingDeleteExpense.value
+    if (!expense) return
 
     isDeleting.value = true
     try {
-      await api(`/api/user/expenses/${editingExpense.value.id}`, { method: 'DELETE' })
-      expenses.value = expenses.value.filter(e => e.id !== editingExpense.value.id)
+      await api(`/api/user/expenses/${expense.id}`, { method: 'DELETE' })
+      expenses.value = expenses.value.filter(e => e.id !== expense.id)
       total.value = Math.max(0, total.value - 1)
       appStore.notify({ type: 'success', message: 'Opération supprimée' })
-      closeEditModal()
+      closeDetail()
       showDeleteConfirmation.value = false
+      pendingDeleteExpense.value = null
     } catch (e) {
       appStore.notify({ type: 'error', message: e.message || 'Erreur lors de la suppression' })
     } finally {
@@ -333,16 +328,15 @@ export function useHomePage() {
     filteredExpenses,
     hasActiveFilters,
     hasUncategorized,
-    editingExpense,
-    editForm,
-    isSubmitting,
+    selected,
+    pendingDeleteExpense,
     isDeleting,
     showFiltersModal,
     showDeleteConfirmation,
-    openEditModal,
-    closeEditModal,
+    openDetail,
+    closeDetail,
     updateExpense,
-    deleteExpense,
+    requestDeleteExpense,
     confirmDelete,
     closeDeleteConfirmation,
     resetFilters,
@@ -352,5 +346,8 @@ export function useHomePage() {
     formatDate,
     getOperationColor,
     getCategoryLineage,
+    getCategoryPath,
+    getCategoryColor,
+    getCategoryTagStyle,
   }
 }

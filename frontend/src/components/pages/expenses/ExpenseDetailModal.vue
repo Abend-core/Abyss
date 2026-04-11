@@ -17,6 +17,20 @@
           </div>
           <dl class="modal__details">
             <div class="modal__row">
+              <dt>Montant</dt>
+              <dd v-if="!isEditing">{{ Number(editForm.amount).toFixed(2) }} {{ currency }}</dd>
+              <dd v-else>
+                <BaseInput
+                  :model-value="editForm.amount"
+                  @update:model-value="value => editForm.amount = value"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Montant"
+                />
+              </dd>
+            </div>
+            <div class="modal__row">
               <dt>Nom</dt>
               <dd v-if="!isEditing">{{ selected.title }}</dd>
               <dd v-else>
