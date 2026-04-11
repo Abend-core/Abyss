@@ -147,9 +147,13 @@ export function useCategoriesPage() {
 
   // ── Demote (make child of previous sibling) ──────
   async function handleDemote(category) {
-    const siblings = getSiblings(category)
+    const siblings = category.parentId === null
+      ? categoryTree.value
+      : getSiblings(category)
+
     const idx = siblings.findIndex(c => c.id === category.id)
     if (idx <= 0) return
+
     const previousSibling = siblings[idx - 1]
     const newPosition = 0
     try {
