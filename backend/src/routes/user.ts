@@ -639,6 +639,20 @@ export default async function userRoutes(fastify: any) {
     }
   }
 
+  function formatExpenseForStats(expense) {
+    return {
+      id: expense.id,
+      amount: parseFloat(decryptValue(expense.amountEncrypted, 'operation-amount')),
+      type: expense.type || 'expense',
+      date: expense.date.toISOString().split('T')[0],
+      category: expense.category ? {
+        id: expense.category.id,
+        name: decryptValue(expense.category.nameEncrypted, 'category-name'),
+        color: expense.category.color || null,
+      } : null,
+    }
+  }
+
   async function createOperation(data) {
     return fastify.prisma.operation.create({
       data: {
@@ -707,7 +721,7 @@ export default async function userRoutes(fastify: any) {
       querystring: {
         type: 'object',
         properties: {
-          limit:  { type: 'integer', minimum: 1, maximum: 100, default: 15 },
+          limit:  { type: 'integer', minimum: 1, maximum: 1000, default: 15 },
           offset: { type: 'integer', minimum: 0, default: 0 },
         },
       },
@@ -750,6 +764,488 @@ export default async function userRoutes(fastify: any) {
       total,
       hasMore: offset + limit < total,
     }
+  })
+
+  // ── GET /api/user/expenses/periods ────────────────────────
+  fastify.get('/api/user/expenses/periods', {
+    schema: {
+      summary: 'Récupérer les mois et années disponibles pour les dépenses',
+      tags: ['expenses'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            months: { type: 'array', items: { type: 'string' } },
+            years: { type: 'array', items: { type: 'integer' } },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+
+    const operations = await fastify.prisma.operation.findMany({
+      where: { userId },
+      select: { date: true },
+      orderBy: { date: 'asc' },
+    })
+
+    const months = Array.from(new Set(operations.map((op) => op.date.toISOString().slice(0, 7))))
+    const years = Array.from(new Set(operations.map((op) => op.date.toISOString().slice(0, 4))))
+      .map((year) => parseInt(year, 10))
+      .sort((a, b) => a - b)
+
+    return {
+      months,
+      years,
+    }
+  })
+
+  // ── GET /api/user/expenses/months ────────────────────────
+  fastify.get('/api/user/expenses/months', {
+    schema: {
+      summary: 'Récupérer la liste des mois et années disponibles pour les opérations',
+      tags: ['expenses'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            months: { type: 'array', items: { type: 'string' } },
+            years: { type: 'array', items: { type: 'integer' } },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+
+    const operations = await fastify.prisma.operation.findMany({
+      where: { userId },
+      select: { date: true },
+      orderBy: { date: 'asc' },
+    })
+
+    const months = Array.from(new Set(operations.map((op) => op.date.toISOString().slice(0, 7))))
+    const years = Array.from(new Set(operations.map((op) => op.date.toISOString().slice(0, 4))))
+      .map((year) => parseInt(year, 10))
+      .sort((a, b) => a - b)
+
+    return {
+      months,
+      years,
+    }
+  })
+
+  // ── GET /api/user/expenses/range ─────────────────────────
+  fastify.get('/api/user/expenses/range', {
+    schema: {
+      summary: 'Récupérer les dépenses de l’utilisateur dans un intervalle de dates',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: { type: 'object', additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+
+    const expenses = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+      },
+      include: { category: { select: { id: true, nameEncrypted: true, color: true, parentId: true } } },
+      orderBy: { date: 'desc' },
+    })
+
+    return { data: expenses.map(formatExpense) }
+  })
+
+  // ── GET /api/user/expenses/stats/net-balance ─────────────────
+  fastify.get('/api/user/expenses/stats/net-balance', {
+    schema: {
+      summary: 'Calculer l\'évolution du solde net (optimisé pour graphique)',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  date: { type: 'string' },
+                  balance: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+
+    // Récupérer seulement les champs nécessaires pour le calcul
+    const operations = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+      },
+      select: {
+        amountEncrypted: true,
+        type: true,
+        date: true,
+      },
+      orderBy: { date: 'asc' }, // Important pour le calcul cumulatif
+    })
+
+    // Calculer le solde cumulatif côté serveur
+    let runningBalance = 0
+    const balanceData = []
+
+    for (const operation of operations) {
+      const amount = parseFloat(decryptValue(operation.amountEncrypted, 'operation-amount'))
+
+      // Crédits augmentent le solde, dépenses le diminuent
+      if (operation.type === 'credit') {
+        runningBalance += amount
+      } else {
+        runningBalance -= amount
+      }
+
+      balanceData.push({
+        date: operation.date.toISOString().split('T')[0],
+        balance: runningBalance,
+      })
+    }
+
+    return { data: balanceData }
+  })
+
+  // ── GET /api/user/expenses/stats/by-category ──────────────────
+  fastify.get('/api/user/expenses/stats/by-category', {
+    schema: {
+      summary: 'Calculer les totaux par catégorie (optimisé pour graphique camembert)',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  categoryId: { type: 'string' },
+                  categoryName: { type: 'string' },
+                  color: { type: 'string' },
+                  total: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+
+    const operations = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+        type: 'expense',
+      },
+      include: {
+        category: {
+          select: { id: true, nameEncrypted: true, color: true }
+        }
+      },
+    })
+
+    // Calculer les totaux par catégorie
+    const categoryMap = new Map()
+
+    for (const operation of operations) {
+      const amount = parseFloat(decryptValue(operation.amountEncrypted, 'operation-amount'))
+      const categoryId = operation.categoryId || 'uncategorized'
+      const categoryName = operation.category
+        ? decryptValue(operation.category.nameEncrypted, 'category-name')
+        : 'Sans catégorie'
+      const color = operation.category?.color || '#6366f1'
+
+      if (!categoryMap.has(categoryId)) {
+        categoryMap.set(categoryId, {
+          categoryId,
+          categoryName,
+          color,
+          total: 0,
+        })
+      }
+
+      categoryMap.get(categoryId).total += amount
+    }
+
+    const data = Array.from(categoryMap.values())
+      .sort((a, b) => b.total - a.total) // Trier par total décroissant
+
+    return { data }
+  })
+
+  // ── GET /api/user/expenses/stats/timeline ─────────────────────
+  fastify.get('/api/user/expenses/stats/timeline', {
+    schema: {
+      summary: 'Calculer l\'évolution temporelle (optimisé pour graphique en courbe)',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end', 'period'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+          period: { type: 'string', enum: ['day', 'week', 'month'], default: 'day' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  period: { type: 'string' },
+                  expenses: { type: 'number' },
+                  credits: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+    const period = req.query.period || 'day'
+
+    // Récupérer toutes les opérations dans la période
+    const operations = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+      },
+      select: {
+        amountEncrypted: true,
+        type: true,
+        date: true,
+      },
+      orderBy: { date: 'asc' },
+    })
+
+    // Grouper par période et calculer les totaux
+    const periodMap = new Map()
+
+    for (const operation of operations) {
+      const amount = parseFloat(decryptValue(operation.amountEncrypted, 'operation-amount'))
+      let periodKey
+
+      switch (period) {
+        case 'month':
+          periodKey = `${operation.date.getFullYear()}-${String(operation.date.getMonth() + 1).padStart(2, '0')}`
+          break
+        case 'week':
+          // Calcul de la semaine (lundi = début de semaine)
+          const day = operation.date.getDay()
+          const diff = operation.date.getDate() - day + (day === 0 ? -6 : 1) // Ajuster pour lundi
+          const weekStart = new Date(operation.date.setDate(diff))
+          periodKey = weekStart.toISOString().split('T')[0]
+          break
+        default: // day
+          periodKey = operation.date.toISOString().split('T')[0]
+      }
+
+      if (!periodMap.has(periodKey)) {
+        periodMap.set(periodKey, { expenses: 0, credits: 0 })
+      }
+
+      if (operation.type === 'credit') {
+        periodMap.get(periodKey).credits += amount
+      } else {
+        periodMap.get(periodKey).expenses += amount
+      }
+    }
+
+    // Convertir en tableau trié
+    const data = Array.from(periodMap.entries())
+      .map(([period, totals]) => ({
+        period,
+        expenses: totals.expenses,
+        credits: totals.credits,
+      }))
+      .sort((a, b) => a.period.localeCompare(b.period))
+
+    return { data }
+  })
+
+  // ── GET /api/user/expenses/kpis ────────────────────────
+  fastify.get('/api/user/expenses/kpis', {
+    schema: {
+      summary: 'Calculer uniquement les KPI pour la page stats',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            totalExpenses: { type: 'number' },
+            totalCredits: { type: 'number' },
+            netBalance: { type: 'number' },
+            monthlyAverage: { type: 'number' },
+            recurringCount: { type: 'integer' },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+
+    const operations = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+      },
+      select: {
+        amountEncrypted: true,
+        type: true,
+        date: true,
+        isRecurring: true,
+      },
+    })
+
+    let totalExpenses = 0
+    let totalCredits = 0
+    let recurringCount = 0
+    const months = new Set()
+
+    for (const op of operations) {
+      const amount = parseFloat(decryptValue(op.amountEncrypted, 'operation-amount'))
+      if (op.type === 'credit') {
+        totalCredits += amount
+      } else {
+        totalExpenses += amount
+      }
+      if (op.isRecurring) recurringCount += 1
+      months.add(op.date.toISOString().slice(0, 7))
+    }
+
+    return {
+      totalExpenses,
+      totalCredits,
+      netBalance: totalCredits - totalExpenses,
+      monthlyAverage: months.size > 0 ? totalExpenses / months.size : 0,
+      recurringCount,
+    }
+  })
+
+  // ── GET /api/user/expenses/stats ────────────────────────
+  fastify.get('/api/user/expenses/stats', {
+    schema: {
+      summary: 'Récupérer les dépenses pour les stats (optimisé, décryption sélective)',
+      tags: ['expenses'],
+      querystring: {
+        type: 'object',
+        required: ['start', 'end'],
+        properties: {
+          start: { type: 'string', format: 'date' },
+          end:   { type: 'string', format: 'date' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: { type: 'object', additionalProperties: true },
+            },
+          },
+        },
+      },
+    },
+    preHandler: requireAuth,
+  }, async (req) => {
+    const userId = req.user.userId
+    const startDate = new Date(req.query.start)
+    const endDate = new Date(req.query.end)
+
+    const expenses = await fastify.prisma.operation.findMany({
+      where: {
+        userId,
+        date: { gte: startDate, lte: endDate },
+      },
+      include: { category: { select: { id: true, nameEncrypted: true, color: true } } },
+      orderBy: { date: 'desc' },
+    })
+
+    return { data: expenses.map(formatExpenseForStats) }
   })
 
   // ── POST /api/user/expenses ─────────────────────────────

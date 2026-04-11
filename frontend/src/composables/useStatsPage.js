@@ -1,378 +1,277 @@
 import { ref, computed, watch, onMounted } from 'vue'
-import { Chart as ChartJS, registerables } from 'chart.js'
 import { useApi } from '@/composables/useApi.js'
+import { useDateFilter } from '@/composables/useDateFilter.js'
 import { useAppStore } from '@/stores/app.store.js'
-
-ChartJS.register(...registerables)
 
 export function useStatsPage() {
   const { api } = useApi()
   const appStore = useAppStore()
+  const dateFilter = useDateFilter()
 
   // ── État ──────────────────────────────────────────
-  const expenses = ref([])
+  const filteredExpenses = ref([])
+  const kpiData = ref({
+    totalExpenses: 0,
+    totalCredits: 0,
+    netBalance: 0,
+    monthlyAverage: 0,
+    recurringCount: 0,
+  })
+  const otherStats = ref({
+    transactionCount: 0,
+    totalExpenses: 0,
+    totalCredits: 0,
+    averageExpense: 0,
+    averageCredit: 0,
+    topCategory: 'Aucune',
+  })
+  const source = ref('kpis')
   const categories = ref([])
   const isLoading = ref(false)
   const currency = ref('€')
-  const selectedMonth = ref('')
+  const availableMonths = ref([])
+  const availableYears = ref([])
 
-  const availableMonths = computed(() => {
-    const monthSet = new Set()
-    expenses.value.forEach(e => {
-      if (e.date) monthSet.add(e.date.slice(0, 7))
-    })
-    return Array.from(monthSet).sort()
+  const groupedExpenses = computed(() => {
+    return dateFilter.groupExpensesByPeriod(filteredExpenses.value, dateFilter.groupingPeriod.value)
   })
 
-  const monthLabels = computed(() => {
-    return availableMonths.value.map(month => {
-      const [year, mo] = month.split('-')
-      return `${new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(`${month}-01`))}`
-    })
+  const groupingPeriodLabel = computed(() => {
+    const period = dateFilter.groupingPeriod.value
+    const labels = {
+      day: '📅 Par jour',
+      week: '📊 Par semaine',
+      month: '📈 Par mois',
+    }
+    return labels[period] || 'Auto'
   })
 
-  const monthOptions = computed(() => {
-    return availableMonths.value.map((month, index) => ({ value: month, label: monthLabels.value[index] }))
-  })
+  const getCurrentMonth = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }
 
   watch(availableMonths, (months) => {
-    if (!selectedMonth.value && months.length > 0) {
-      selectedMonth.value = months[months.length - 1]
-    }
-    if (selectedMonth.value && !months.includes(selectedMonth.value)) {
-      selectedMonth.value = months[months.length - 1] || ''
+    if (!dateFilter.selectedMonth.value && months.length > 0) {
+      const currentMonth = getCurrentMonth()
+      dateFilter.selectedMonth.value = months.includes(currentMonth)
+        ? currentMonth
+        : months[months.length - 1]
+      dateFilter.filterMode.value = 'month'
     }
   }, { immediate: true })
 
-  function setSelectedMonth(month) {
-    selectedMonth.value = month
-  }
+  watch(availableYears, (years) => {
+    if (!dateFilter.selectedYear.value && years.length > 0 && dateFilter.filterMode.value === 'year') {
+      const currentYear = new Date().getFullYear()
+      dateFilter.selectedYear.value = years.includes(currentYear)
+        ? currentYear
+        : years[years.length - 1]
+    }
+  }, { immediate: true })
 
-  // ── KPIs ──────────────────────────────────────────
-  const totalExpenses = computed(() => {
-    return expenses.value.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0)
+  watch(() => dateFilter.filterMode.value, (newMode) => {
+    if (newMode === 'year' && !dateFilter.selectedYear.value && availableYears.value.length > 0) {
+      const currentYear = new Date().getFullYear()
+      dateFilter.selectedYear.value = availableYears.value.includes(currentYear)
+        ? currentYear
+        : availableYears.value[availableYears.value.length - 1]
+    }
   })
 
-  const totalCredits = computed(() => {
-    return expenses.value.filter(e => e.type === 'credit').reduce((sum, e) => sum + e.amount, 0)
+  const activeFilterLabel = computed(() => {
+    const range = dateFilter.dateRange.value
+    if (!range) return 'Aucun filtre actif'
+
+    const format = (value) => new Date(value).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+
+    if (dateFilter.filterMode.value === 'month' && dateFilter.selectedMonth.value) {
+      const [year, month] = dateFilter.selectedMonth.value.split('-')
+      return `Mois : ${new Date(`${year}-${month}-01`).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`
+    }
+
+    if (dateFilter.filterMode.value === 'year' && dateFilter.selectedYear.value) {
+      return `Année : ${dateFilter.selectedYear.value}`
+    }
+
+    if (dateFilter.filterMode.value === 'custom' && dateFilter.customStart.value && dateFilter.customEnd.value) {
+      return `Plage : ${format(dateFilter.customStart.value)} → ${format(dateFilter.customEnd.value)}`
+    }
+
+    return 'Filtre actif'
   })
 
-  const netBalance = computed(() => totalCredits.value - totalExpenses.value)
-
-  const monthlyAverage = computed(() => {
-    if (expenses.value.length === 0) return 0
-    const monthSet = new Set(expenses.value.map(e => new Date(e.date).toISOString().slice(0, 7)))
-    return totalExpenses.value / (monthSet.size || 1)
-  })
-
-  const recurringCount = computed(() => {
-    return expenses.value.filter(e => e.isRecurring).length
-  })
+  // ── KPIs (calculés sur les données filtrées) ──────────
+  const totalExpenses = computed(() => kpiData.value.totalExpenses)
+  const totalCredits = computed(() => kpiData.value.totalCredits)
+  const netBalance = computed(() => kpiData.value.netBalance)
+  const monthlyAverage = computed(() => kpiData.value.monthlyAverage)
+  const recurringCount = computed(() => kpiData.value.recurringCount)
 
   // ── Data loading ──────────────────────────────────
-  async function loadData() {
+  async function loadPeriods() {
+    const [periodsRes, catsRes, userRes] = await Promise.allSettled([
+      api('/api/user/expenses/months'),
+      api('/api/categories'),
+      api('/api/user'),
+    ])
+
+    if (periodsRes.status === 'fulfilled') {
+      const res = periodsRes.value
+      availableMonths.value = res?.months ?? []
+      availableYears.value = res?.years ?? []
+    } else {
+      const fallbackRes = await api('/api/user/expenses/periods').catch(() => null)
+      if (fallbackRes) {
+        availableMonths.value = fallbackRes.months ?? []
+        availableYears.value = fallbackRes.years ?? []
+      }
+    }
+
+    if (dateFilter.filterMode.value === 'year' && !dateFilter.selectedYear.value && availableYears.value.length > 0) {
+      const currentYear = new Date().getFullYear()
+      dateFilter.selectedYear.value = availableYears.value.includes(currentYear)
+        ? currentYear
+        : availableYears.value[availableYears.value.length - 1]
+    }
+
+    if (catsRes.status === 'fulfilled') categories.value = catsRes.value ?? []
+    if (userRes.status === 'fulfilled') {
+      const cur = userRes.value.settings?.currency || 'EUR'
+      currency.value = { EUR: '€', USD: '$', GBP: '£', JPY: '¥', CHF: 'CHF', AUD: 'A$' }[cur] || cur
+    }
+
+    if (!dateFilter.dateRange.value && availableMonths.value.length > 0) {
+      const currentMonth = getCurrentMonth()
+      dateFilter.selectedMonth.value = availableMonths.value.includes(currentMonth)
+        ? currentMonth
+        : availableMonths.value[availableMonths.value.length - 1]
+      dateFilter.filterMode.value = 'month'
+    }
+
+    // Initialize year filter if no range is set and years are available
+    if (!dateFilter.dateRange.value && availableYears.value.length > 0 && dateFilter.filterMode.value === 'year') {
+      const currentYear = new Date().getFullYear()
+      dateFilter.selectedYear.value = availableYears.value.includes(currentYear)
+        ? currentYear
+        : availableYears.value[availableYears.value.length - 1]
+    }
+  }
+
+  async function loadKpiData(range) {
+    const res = await api(`/api/user/expenses/kpis?start=${range.start}&end=${range.end}`)
+    kpiData.value = {
+      totalExpenses: res?.totalExpenses ?? 0,
+      totalCredits: res?.totalCredits ?? 0,
+      netBalance: res?.netBalance ?? 0,
+      monthlyAverage: res?.monthlyAverage ?? 0,
+      recurringCount: res?.recurringCount ?? 0,
+    }
+  }
+
+  async function loadOtherStats(range) {
+    const res = await api(`/api/user/expenses/stats?start=${range.start}&end=${range.end}`)
+    const operations = res?.data ?? []
+
+    let totalExpensesValue = 0
+    let totalCreditsValue = 0
+    let expenseCount = 0
+    let creditCount = 0
+    const categoryCounts = new Map()
+
+    for (const op of operations) {
+      if (op.type === 'credit') {
+        totalCreditsValue += op.amount
+        creditCount += 1
+      } else {
+        totalExpensesValue += op.amount
+        expenseCount += 1
+      }
+
+      if (op.category?.name) {
+        categoryCounts.set(op.category.name, (categoryCounts.get(op.category.name) || 0) + 1)
+      }
+    }
+
+    const topCategoryEntry = Array.from(categoryCounts.entries()).sort((a, b) => b[1] - a[1])[0]
+    otherStats.value = {
+      transactionCount: operations.length,
+      totalExpenses: totalExpensesValue,
+      totalCredits: totalCreditsValue,
+      averageExpense: expenseCount > 0 ? totalExpensesValue / expenseCount : 0,
+      averageCredit: creditCount > 0 ? totalCreditsValue / creditCount : 0,
+      topCategory: topCategoryEntry ? topCategoryEntry[0] : 'Aucune',
+    }
+  }
+
+  async function loadFilteredExpenses() {
+    if (!dateFilter.dateRange.value) return
+
     isLoading.value = true
     try {
-      const [expensesRes, catsRes, userRes] = await Promise.allSettled([
-        api('/api/user/expenses'),
-        api('/api/categories'),
-        api('/api/user'),
-      ])
-
-      if (expensesRes.status === 'fulfilled') {
-        const res = expensesRes.value
-        expenses.value = res?.data ?? res ?? []
-      }
-      if (catsRes.status === 'fulfilled') categories.value = catsRes.value ?? []
-      if (userRes.status === 'fulfilled') {
-        const cur = userRes.value.settings?.currency || 'EUR'
-        currency.value = { EUR: '€', USD: '$', GBP: '£', JPY: '¥', CHF: 'CHF', AUD: 'A$' }[cur] || cur
+      const range = dateFilter.dateRange.value
+      if (source.value === 'kpis') {
+        await loadKpiData(range)
+      } else {
+        await loadOtherStats(range)
       }
     } finally {
       isLoading.value = false
     }
   }
 
-  // ── Chart utils ───────────────────────────────────
-  const chartColorScheme = computed(() => {
-    const isDark = appStore.isDark
-    return {
-      text: isDark ? '#d4d4d4' : '#333333',
-      border: isDark ? '#3a3a3a' : '#e5e7eb',
-      grid: isDark ? '#2d2d2d' : '#f3f4f6',
-      colors: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'],
-    }
+  watch([
+    () => dateFilter.dateRange.value,
+    () => source.value,
+  ], async () => {
+    if (!dateFilter.dateRange.value) return
+    await loadFilteredExpenses()
   })
 
-  function getChartOptions(type = 'line') {
-    const opts = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          labels: { color: chartColorScheme.value.text, font: { size: 12 } },
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          titleColor: '#fff',
-          bodyColor: '#fff',
-          borderColor: chartColorScheme.value.border,
-          borderWidth: 1,
-          padding: 10,
-        },
-      },
+  async function loadData() {
+    isLoading.value = true
+    try {
+      await loadPeriods()
+      await loadFilteredExpenses()
+    } finally {
+      isLoading.value = false
     }
-
-    if (type === 'doughnut' || type === 'pie') {
-      opts.plugins.legend.position = 'bottom'
-    } else {
-      opts.scales = {
-        x: { grid: { color: chartColorScheme.value.grid }, ticks: { color: chartColorScheme.value.text } },
-        y: {
-          grid: { color: chartColorScheme.value.grid },
-          ticks: { color: chartColorScheme.value.text },
-          beginAtZero: true,
-        },
-      }
-    }
-
-    return opts
   }
-
-  // ── Chart instances ───────────────────────────────
-  const chartByCategory = ref(null)
-  const chartMonthlyEvolution = ref(null)
-  const chartByDayOfWeek = ref(null)
-  const chartTopCategories = ref(null)
-
-  // ── Build charts ──────────────────────────────────
-  function buildCharts() {
-    buildCategoryChart()
-    buildMonthlyEvolutionChart()
-    buildDayOfWeekChart()
-    buildTopCategoriesChart()
-  }
-
-  function buildCategoryChart() {
-    const categoryMap = new Map()
-    const categoryColors = new Map()
-
-    expenses.value.forEach(e => {
-      if (e.type === 'expense' && e.category) {
-        const name = e.category.name
-        categoryMap.set(name, (categoryMap.get(name) || 0) + e.amount)
-        if (!categoryColors.has(name) && e.category.color) {
-          categoryColors.set(name, e.category.color)
-        }
-      }
-    })
-
-    const labels = Array.from(categoryMap.keys())
-    const colors = labels.map(label => categoryColors.get(label) || chartColorScheme.value.colors[labels.indexOf(label)])
-
-    const data = {
-      labels,
-      datasets: [
-        {
-          data: Array.from(categoryMap.values()),
-          backgroundColor: colors,
-          borderColor: chartColorScheme.value.border,
-          borderWidth: 1,
-        },
-      ],
-    }
-
-    const canvas = document.getElementById('chartByCategory')
-    if (!canvas) return
-    if (chartByCategory.value) chartByCategory.value.destroy()
-    chartByCategory.value = new ChartJS(canvas, {
-      type: 'doughnut',
-      data,
-      options: getChartOptions('doughnut'),
-    })
-  }
-
-  function buildMonthlyEvolutionChart() {
-    const selected = selectedMonth.value || availableMonths.value[availableMonths.value.length - 1]
-    if (!selected) return
-
-    const startDate = new Date(`${selected}-01`)
-    const endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
-    const daysInMonth = endDate.getDate()
-
-    const dayMap = Array.from({ length: daysInMonth }, (_, index) => ({
-      day: index + 1,
-      expense: 0,
-      credit: 0,
-    }))
-
-    expenses.value.forEach(e => {
-      const expenseMonth = e.date.slice(0, 7)
-      if (expenseMonth !== selected) return
-      const day = new Date(e.date).getDate()
-      if (!dayMap[day - 1]) return
-      if (e.type === 'expense') {
-        dayMap[day - 1].expense += e.amount
-      } else {
-        dayMap[day - 1].credit += e.amount
-      }
-    })
-
-    const labels = dayMap.map(item => item.day.toString())
-    const expenseData = dayMap.map(item => item.expense)
-    const creditData = dayMap.map(item => item.credit)
-
-    const data = {
-      labels,
-      datasets: [
-        {
-          label: 'Dépenses',
-          data: expenseData,
-          borderColor: '#ef4444',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-        },
-        {
-          label: 'Revenus',
-          data: creditData,
-          borderColor: '#10b981',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-        },
-      ],
-    }
-
-    const canvas = document.getElementById('chartMonthlyEvolution')
-    if (!canvas) return
-    if (chartMonthlyEvolution.value) chartMonthlyEvolution.value.destroy()
-    chartMonthlyEvolution.value = new ChartJS(canvas, {
-      type: 'line',
-      data,
-      options: getChartOptions('line'),
-    })
-  }
-
-  function buildDayOfWeekChart() {
-    const dayMap = new Map()
-    const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-
-    expenses.value.forEach(e => {
-      if (e.type === 'expense') {
-        const dow = new Date(e.date).toLocaleDateString('fr-FR', { weekday: 'long' })
-        const dayName = days.find(d => d.toLowerCase() === dow.toLowerCase()) || dow
-        dayMap.set(dayName, (dayMap.get(dayName) || 0) + e.amount)
-      }
-    })
-
-    const orderedDays = days.filter(d => dayMap.has(d))
-    const data = {
-      labels: orderedDays,
-      datasets: [
-        {
-          label: 'Dépenses',
-          data: orderedDays.map(d => dayMap.get(d) || 0),
-          backgroundColor: '#3b82f6',
-          borderColor: chartColorScheme.value.border,
-          borderWidth: 1,
-        },
-      ],
-    }
-
-    const canvas = document.getElementById('chartByDayOfWeek')
-    if (!canvas) return
-    if (chartByDayOfWeek.value) chartByDayOfWeek.value.destroy()
-    chartByDayOfWeek.value = new ChartJS(canvas, {
-      type: 'bar',
-      data,
-      options: getChartOptions('bar'),
-    })
-  }
-
-  function buildTopCategoriesChart() {
-    const categoryMap = new Map()
-    const categoryColors = new Map()
-
-    expenses.value.forEach(e => {
-      if (e.type === 'expense' && e.category) {
-        const name = e.category.name
-        categoryMap.set(name, (categoryMap.get(name) || 0) + e.amount)
-        if (!categoryColors.has(name) && e.category.color) {
-          categoryColors.set(name, e.category.color)
-        }
-      }
-    })
-
-    const sorted = Array.from(categoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-
-    const labels = sorted.map(([name]) => name)
-    const colors = labels.map(label => categoryColors.get(label) || chartColorScheme.value.colors[labels.indexOf(label)])
-
-    const data = {
-      labels,
-      datasets: [
-        {
-          label: 'Total',
-          data: sorted.map(([, amt]) => amt),
-          backgroundColor: colors,
-          borderColor: chartColorScheme.value.border,
-          borderWidth: 1,
-        },
-      ],
-    }
-
-    const canvas = document.getElementById('chartTopCategories')
-    if (!canvas) return
-    if (chartTopCategories.value) chartTopCategories.value.destroy()
-    chartTopCategories.value = new ChartJS(canvas, {
-      type: 'bar',
-      data,
-      options: getChartOptions('bar'),
-    })
-  }
-
-  // ── Watchers ──────────────────────────────────────
-  watch(() => appStore.isDark, () => buildCharts(), { flush: 'post' })
-  watch(expenses, () => buildCharts(), { flush: 'post' })
-  watch(selectedMonth, () => {
-    buildMonthlyEvolutionChart()
-  }, { flush: 'post' })
 
   onMounted(async () => {
     await loadData()
-    await nextTick()
-    buildCharts()
   })
 
   return {
     // État
-    expenses,
+    filteredExpenses,
+    groupedExpenses,
     categories,
     isLoading,
     currency,
 
-    // KPIs
+    // KPIs (calculés sur données filtrées)
     totalExpenses,
     totalCredits,
     netBalance,
     monthlyAverage,
     recurringCount,
 
-    // Mois disponibles
+    // Autres statistiques
+    otherStats,
+    source,
+
+    // Options de sélection
     availableMonths,
-    monthOptions,
-    selectedMonth,
-    setSelectedMonth,
+    availableYears,
+    groupingPeriodLabel,
+
+    // Filtre de dates (pour accès dans les composants)
+    dateFilter,
+    activeFilterLabel,
 
     // Fonctions
     loadData,
-    buildCharts,
+    loadFilteredExpenses,
   }
 }
